@@ -74,4 +74,12 @@
       compile project(':react-native-syan-image-picker')
   	```
 
-  
+## 运行示例
+
+[ImagePickerExample](https://github.com/syanbo/ImagePickerExample)
+
+```
+import ImagePicker from 'react-native-syan-image-picker'
+ImagePicker.showImagePicker(options, (err, photos) => {})
+
+```
