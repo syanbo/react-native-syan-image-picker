@@ -22,6 +22,7 @@
 		23F50D731F3C041A004B3E61 /* TZVideoPlayerController.m in Sources */ = {isa = PBXBuildFile; fileRef = 23F50D641F3C041A004B3E61 /* TZVideoPlayerController.m */; };
 		23F50D741F3C041A004B3E61 /* UIView+Layout.m in Sources */ = {isa = PBXBuildFile; fileRef = 23F50D661F3C041A004B3E61 /* UIView+Layout.m */; };
 		B3E7B58A1CC2AC0600A0062D /* RNSyanImagePicker.m in Sources */ = {isa = PBXBuildFile; fileRef = B3E7B5891CC2AC0600A0062D /* RNSyanImagePicker.m */; };
+		EC236E871F978C3B00D528A5 /* NSDictionary+SYSafeConvert.m in Sources */ = {isa = PBXBuildFile; fileRef = EC236E861F978C3B00D528A5 /* NSDictionary+SYSafeConvert.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -69,6 +70,8 @@
 		23F50D661F3C041A004B3E61 /* UIView+Layout.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = "UIView+Layout.m"; sourceTree = "<group>"; };
 		B3E7B5881CC2AC0600A0062D /* RNSyanImagePicker.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = RNSyanImagePicker.h; sourceTree = "<group>"; };
 		B3E7B5891CC2AC0600A0062D /* RNSyanImagePicker.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = RNSyanImagePicker.m; sourceTree = "<group>"; };
+		EC236E851F978C3B00D528A5 /* NSDictionary+SYSafeConvert.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "NSDictionary+SYSafeConvert.h"; sourceTree = "<group>"; };
+		EC236E861F978C3B00D528A5 /* NSDictionary+SYSafeConvert.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "NSDictionary+SYSafeConvert.m"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -129,6 +132,8 @@
 		58B511D21A9E6C8500147676 = {
 			isa = PBXGroup;
 			children = (
+				EC236E851F978C3B00D528A5 /* NSDictionary+SYSafeConvert.h */,
+				EC236E861F978C3B00D528A5 /* NSDictionary+SYSafeConvert.m */,
 				23F50D491F3C0419004B3E61 /* TZImagePickerController */,
 				B3E7B5881CC2AC0600A0062D /* RNSyanImagePicker.h */,
 				B3E7B5891CC2AC0600A0062D /* RNSyanImagePicker.m */,
@@ -198,6 +203,7 @@
 				23F50D6C1F3C041A004B3E61 /* TZImageManager.m in Sources */,
 				23F50D671F3C041A004B3E61 /* NSBundle+TZImagePicker.m in Sources */,
 				23F50D6A1F3C041A004B3E61 /* TZGifPhotoPreviewController.m in Sources */,
+				EC236E871F978C3B00D528A5 /* NSDictionary+SYSafeConvert.m in Sources */,
 				23F50D6B1F3C041A004B3E61 /* TZImageCropManager.m in Sources */,
 				23F50D711F3C041A004B3E61 /* TZPhotoPreviewController.m in Sources */,
 				23F50D741F3C041A004B3E61 /* UIView+Layout.m in Sources */,
