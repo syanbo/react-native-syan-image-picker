@@ -8,6 +8,7 @@ import android.graphics.BitmapFactory;
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.BaseActivityEventListener;
 import com.facebook.react.bridge.Callback;
+import com.facebook.react.bridge.Promise;
 import com.facebook.react.bridge.ReactApplicationContext;
 import com.facebook.react.bridge.ReactContextBaseJavaModule;
 import com.facebook.react.bridge.ReactMethod;
@@ -27,11 +28,15 @@ import java.util.List;
 
 public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
+    private static String SY_SELECT_IMAGE_FAILED_CODE = "0"; // 失败时，Promise用到的code
+
     private final ReactApplicationContext reactContext;
 
     private List<LocalMedia> selectList = new ArrayList<>();
 
-    private Callback mPickerCallback;
+    private Callback mPickerCallback; // 保存回调
+
+    private Promise mPickerPromise; // 保存Promise
 
     public RNSyanImagePickerModule(ReactApplicationContext reactContext) {
         super(reactContext);
@@ -46,6 +51,24 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void showImagePicker(ReadableMap options, Callback callback) {
+        this.mPickerPromise = null;
+        this.mPickerCallback = callback;
+        this.openImagePicker(options);
+    }
+
+    @ReactMethod
+    public void asyncShowImagePicker(ReadableMap options, Promise promise) {
+        this.mPickerCallback = null;
+        this.mPickerPromise = promise;
+        this.openImagePicker(options);
+    }
+
+    /**
+     * 打开相册选择
+     *
+     * @param options 相册参数
+     */
+    private void openImagePicker(ReadableMap options) {
         int imageCount = options.getInt("imageCount");
         boolean isCamera = options.getBoolean("isCamera");
         boolean isCrop = options.getBoolean("isCrop");
@@ -62,8 +85,6 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         } else {
             modeValue = 2;
         }
-
-        this.mPickerCallback = callback;
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openGallery(PictureMimeType.ofImage())// 全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
@@ -90,7 +111,6 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .cropCompressQuality(90)// 裁剪压缩质量 默认100
                 .scaleEnabled(true)// 裁剪是否可放大缩小图片
                 .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
-
     }
 
     private final ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
@@ -130,12 +150,37 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                         imageList.pushMap(aImage);
                     }
                     if (selectList.isEmpty()) {
-                        mPickerCallback.invoke("取消");
+                        invokeError();
                     } else {
-                        mPickerCallback.invoke(null, imageList);
+                        invokeSuccessWithResult(imageList);
                     }
             }
         }
     };
 
+    /**
+     * 选择照片成功时触发
+     *
+     * @param imageList 图片数组
+     */
+    private void invokeSuccessWithResult(WritableArray imageList) {
+        if (this.mPickerCallback != null) {
+            this.mPickerCallback.invoke(null, imageList);
+            this.mPickerCallback = null;
+        } else if (this.mPickerPromise != null) {
+            this.mPickerPromise.resolve(imageList);
+        }
+    }
+
+    /**
+     * 取消选择时触发
+     */
+    private void invokeError() {
+        if (this.mPickerCallback != null) {
+            this.mPickerCallback.invoke("取消");
+            this.mPickerCallback = null;
+        } else if (this.mPickerPromise != null) {
+            this.mPickerPromise.reject(SY_SELECT_IMAGE_FAILED_CODE, "取消");
+        }
+    }
 }
