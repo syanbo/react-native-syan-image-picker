@@ -143,3 +143,11 @@ import ImagePicker from 'react-native-syan-image-picker'
      */
 
 ```
+
+## 非常感谢
+
+[LuckSiege](https://github.com/LuckSiege/PictureSelector)
+
+[banchichen](https://github.com/banchichen/TZImagePickerController)
+
+[ljunb](https://github.com/ljunb)

@@ -6,7 +6,7 @@
 //  Copyright © 2017年 Facebook. All rights reserved.
 //
 
-#import "NSMutableDictionary+SYSafeConvert.h"
+#import "NSDictionary+SYSafeConvert.h"
 
 @implementation NSMutableDictionary (SYSafeConvert)
 
