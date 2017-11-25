@@ -50,24 +50,26 @@ RCT_REMAP_METHOD(asyncShowImagePicker,
     BOOL showCropCircle  = [options sy_boolForKey:@"showCropCircle"];
     NSInteger CropW      = [options sy_integerForKey:@"CropW"];
     NSInteger CropH      = [options sy_integerForKey:@"CropH"];
-  
+    NSInteger circleCropRadius = [options sy_integerForKey:@"circleCropRadius"];
+
     TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:nil];
-  
+
     imagePickerVc.maxImagesCount = imageCount;
     imagePickerVc.allowPickingGif = isGif; // 允许GIF
     imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
     imagePickerVc.allowPickingVideo = NO; // 不允许视频
     imagePickerVc.allowPickingOriginalPhoto = NO; // 允许原图
     imagePickerVc.allowCrop = isCrop;   // 裁剪
-  
+
     if (imageCount == 1) {
         // 单选模式
         imagePickerVc.showSelectBtn = NO;
         imagePickerVc.allowPreview = NO;
-      
+
         if(isCrop){
             if(showCropCircle) {
                 imagePickerVc.needCircleCrop = showCropCircle; //圆形裁剪
+                imagePickerVc.circleCropRadius = circleCropRadius; //圆形半径
             } else {
                 CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
                 CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;

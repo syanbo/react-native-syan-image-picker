@@ -10,15 +10,16 @@ const { width } = Dimensions.get('window');
  * 默认参数
  */
 const defaultOptions = {
-    imageCount: 6,          // 最大选择图片数目，默认6
-    isCamera: true,         // 是否允许用户在内部拍照，默认true
-    isCrop: false,          // 是否允许裁剪，默认false
-    CropW: ~~(width * 0.6), // 裁剪宽度，默认屏幕宽度60%
-    CropH: ~~(width * 0.6), // 裁剪高度，默认屏幕宽度60%
-    isGif: false,           // 是否允许选择GIF，默认false，暂无回调GIF数据
-    showCropCircle: false,  // 是否显示圆形裁剪区域，默认false
-    showCropFrame: true,    // 是否显示裁剪区域，默认true
-    showCropGrid: false     // 是否隐藏裁剪区域网格，默认false
+    imageCount: 6,             // 最大选择图片数目，默认6
+    isCamera: true,            // 是否允许用户在内部拍照，默认true
+    isCrop: false,             // 是否允许裁剪，默认false, imageCount 为1才生效
+    CropW: ~~(width * 0.6),    // 裁剪宽度，默认屏幕宽度60%
+    CropH: ~~(width * 0.6),    // 裁剪高度，默认屏幕宽度60%
+    isGif: false,              // 是否允许选择GIF，默认false，暂无回调GIF数据
+    showCropCircle: false,     // 是否显示圆形裁剪区域，默认false
+    circleCropRadius: width/2, // 圆形裁剪半径，默认屏幕宽度一半
+    showCropFrame: true,       // 是否显示裁剪区域，默认true
+    showCropGrid: false        // 是否隐藏裁剪区域网格，默认false
 };
 
 export default {
