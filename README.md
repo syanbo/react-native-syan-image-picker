@@ -9,6 +9,9 @@
 
  iOS 基于 [TZImagePickerController 1.9.0](https://github.com/banchichen/TZImagePickerController)
 
+![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_001.png?imageView/2/w/268)
+![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_002.png?imageView/2/w/268)
+![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_003.png?imageView/2/w/268)
 
 ## 安装使用
 
@@ -30,6 +33,8 @@
     "Privacy - Location When In Use Usage Description"
     "Privacy - Photo Library Usage Description"
     ```
+    
+- 添加中文 PROJECT -> Info -> Localizations 点击"+"按钮，选择Chinese(Simplified)
 
 ### Android
 
@@ -144,7 +149,8 @@ import ImagePicker from 'react-native-syan-image-picker'
      */
 
 ```
-
+## 帮助
+加入React-Native QQ群 397885169
 ## 非常感谢
 
 [LuckSiege](https://github.com/LuckSiege/PictureSelector)
