@@ -17,7 +17,7 @@ android {
 
     defaultConfig {
         minSdkVersion 16
-        targetSdkVersion 22
+        targetSdkVersion 23
         versionCode 1
         versionName "1.0"
     }
@@ -32,6 +32,6 @@ repositories {
 
 dependencies {
     compile 'com.facebook.react:react-native:+'
-    compile 'com.github.LuckSiege.PictureSelector:picture_library:v2.1.1'
+    compile 'com.github.LuckSiege.PictureSelector:picture_library:v2.1.7'
 }
   

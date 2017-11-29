@@ -87,30 +87,39 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         }
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
-                .openGallery(PictureMimeType.ofImage())// 全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
-                .maxSelectNum(imageCount)// 最大图片选择数量
-                .minSelectNum(1)// 最小选择数量
-                .imageSpanCount(4)// 每行显示个数
-                .selectionMode(modeValue)// 多选 or 单选
-                .previewImage(true)// 是否可预览图片
-                .previewVideo(false)// 是否可预览视频
-                .compressGrade(Luban.THIRD_GEAR)// luban压缩档次，默认3档 Luban.FIRST_GEAR、Luban.CUSTOM_GEAR
-                .isCamera(isCamera)// 是否显示拍照按钮
-                .enableCrop(isCrop)// 是否裁剪
-                .compress(true)// 是否压缩
-                .compressMode(PictureConfig.SYSTEM_COMPRESS_MODE)//系统自带 or 鲁班压缩 PictureConfig.SYSTEM_COMPRESS_MODE or LUBAN_COMPRESS_MODE
-                .glideOverride(160, 160)// glide 加载宽高，越小图片列表越流畅，但会影响列表图片浏览的清晰度
-                .withAspectRatio(CropW, CropH)// 裁剪比例 如16:9 3:2 3:4 1:1 可自定义 裁剪比例自定义
-                .hideBottomControls(isCrop)// 是否显示uCrop工具栏，默认不显示
-                .isGif(isGif)// 是否显示gif图片
-                .freeStyleCropEnabled(true)// 裁剪框是否可拖拽
-                .circleDimmedLayer(showCropCircle)// 是否圆形裁剪
-                .showCropFrame(showCropFrame)// 是否显示裁剪矩形边框 圆形裁剪时建议设为false
-                .showCropGrid(showCropGrid)// 是否显示裁剪矩形网格 圆形裁剪时建议设为false
-                .openClickSound(false)// 是否开启点击声音
-                .cropCompressQuality(90)// 裁剪压缩质量 默认100
-                .scaleEnabled(true)// 裁剪是否可放大缩小图片
-                .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
+            .openGallery(PictureMimeType.ofImage())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
+            .maxSelectNum(imageCount)// 最大图片选择数量 int
+            .minSelectNum(1)// 最小选择数量 int
+            .imageSpanCount(4)// 每行显示个数 int
+            .selectionMode(modeValue)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
+            .previewImage(true)// 是否可预览图片 true or false
+            .previewVideo(false)// 是否可预览视频 true or false
+            .enablePreviewAudio(false) // 是否可播放音频 true or false
+            .isCamera(isCamera)// 是否显示拍照按钮 true or false
+            .imageFormat(PictureMimeType.PNG)// 拍照保存图片格式后缀,默认jpeg
+            .isZoomAnim(true)// 图片列表点击 缩放效果 默认true
+            .sizeMultiplier(0.5f)// glide 加载图片大小 0~1之间 如设置 .glideOverride()无效
+            .enableCrop(isCrop)// 是否裁剪 true or false
+            .compress(true)// 是否压缩 true or false
+            .glideOverride(160, 160)// int glide 加载宽高，越小图片列表越流畅，但会影响列表图片浏览的清晰度
+            .withAspectRatio(CropW, CropH)// int 裁剪比例 如16:9 3:2 3:4 1:1 可自定义
+            .hideBottomControls(isCrop)// 是否显示uCrop工具栏，默认不显示 true or false
+            .isGif(isGif)// 是否显示gif图片 true or false
+            .freeStyleCropEnabled(true)// 裁剪框是否可拖拽 true or false
+            .circleDimmedLayer(showCropCircle)// 是否圆形裁剪 true or false
+            .showCropFrame(showCropFrame)// 是否显示裁剪矩形边框 圆形裁剪时建议设为false   true or false
+            .showCropGrid(showCropGrid)// 是否显示裁剪矩形网格 圆形裁剪时建议设为false    true or false
+            .openClickSound(false)// 是否开启点击声音 true or false
+            .cropCompressQuality(90)// 裁剪压缩质量 默认90 int
+            .minimumCompressSize(100)// 小于100kb的图片不压缩 
+            .synOrAsy(true)//同步true或异步false 压缩 默认同步
+            .rotateEnabled(true) // 裁剪是否可旋转图片 true or false
+            .scaleEnabled(true)// 裁剪是否可放大缩小图片 true or false
+            .videoQuality(0)// 视频录制质量 0 or 1 int
+            .videoMaxSecond(15)// 显示多少秒以内的视频or音频也可适用 int 
+            .videoMinSecond(10)// 显示多少秒以内的视频or音频也可适用 int 
+            .recordVideoSecond(60)//视频秒数录制 默认60s int
+            .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
     }
 
     private final ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
