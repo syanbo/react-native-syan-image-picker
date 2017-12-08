@@ -33,10 +33,12 @@
     "Privacy - Location When In Use Usage Description"
     "Privacy - Photo Library Usage Description"
     ```
-    记得添加描述
+   ##### 记得添加描述
+    ```
     Privacy - Camera Usage Description 是否允许此App使用你的相机？
     Privacy - Photo Library Usage Description 是否允许此App访问你的媒体资料库？
     Privacy - Location When In Use Usage Description 我们需要通过您的地理位置信息获取您周边的相关数据
+    ```
     
 - 添加中文 PROJECT -> Info -> Localizations 点击"+"按钮，选择Chinese(Simplified)
 
