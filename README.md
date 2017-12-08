@@ -33,7 +33,7 @@
     "Privacy - Location When In Use Usage Description"
     "Privacy - Photo Library Usage Description"
     ```
-   ##### 记得添加描述
+##### 记得添加描述
     ```
     Privacy - Camera Usage Description 是否允许此App使用你的相机？
     Privacy - Photo Library Usage Description 是否允许此App访问你的媒体资料库？
