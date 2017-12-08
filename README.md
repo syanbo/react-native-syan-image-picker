@@ -21,7 +21,7 @@
 
 ### iOS
 
-- TARGETS -> Build Phases -> Link Binary -> Copy Bundle Resources
+- TARGETS -> Build Phases -> Copy Bundle Resources
 点击"+"按钮，在弹出的窗口中点击“Add Other”按钮，选择
     ```
     node_modules/react-native-syan-image-picker/ios/TZImagePickerController/TZImagePickerController.bundle
