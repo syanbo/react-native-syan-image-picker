@@ -1,7 +1,7 @@
 
 {
   "name": "react-native-syan-image-picker",
-  "version": "0.0.7",
+  "version": "0.0.8",
   "description": "",
   "main": "index.js",
   "scripts": {
@@ -11,7 +11,11 @@
   "keywords": [
     "react-native",
     "image",
-    "image-picker"
+    "image-picker",
+    "syan",
+    "PictureSelector",
+    "TZImagePickerController",
+    "Photo"
   ],
   "author": "",
   "license": ""

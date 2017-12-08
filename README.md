@@ -38,7 +38,7 @@
 
 ### Android
 
-- android 下build.gradle文件添加
+- android 下build.gradle文件添加  maven { url "https://jitpack.io" }
     ```
      allprojects {
          repositories {
@@ -58,7 +58,11 @@
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
   <uses-permission android:name="android.permission.CAMERA" />
   ```
-
+- 注意 安装运行报错
+1. 检查自动link是否成功 
+2. 使用Android Studio 查看MainApplication文件是否添加new RNSyanImagePickerPackage()
+3. 使用Android Studio 打开项目检查Gradle是否同步完成
+4. 可以运行[ImagePickerExample](https://github.com/syanbo/ImagePickerExample) 该demo，测试Android7.0，6.0拍照选图都为正常
 
 ## link失败手动添加
 #### iOS
@@ -72,7 +76,7 @@
 
 #### Android
 
-1. Open up `android/app/src/main/java/[...]/MainActivity.java`
+1. Open up `android/app/src/main/java/[...]/MainApplication.java`
   - Add `import com.reactlibrary.RNSyanImagePickerPackage;` to the imports at the top of the file
   - Add `new RNSyanImagePickerPackage()` to the list returned by the `getPackages()` method
 2. Append the following lines to `android/settings.gradle`:
