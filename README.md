@@ -100,7 +100,7 @@
 [ImagePickerExample](https://github.com/syanbo/ImagePickerExample)
 
 ```
-import ImagePicker from 'react-native-syan-image-picker'
+import SYImagePicker from 'react-native-syan-image-picker'
 
   /**
    * 默认参数
