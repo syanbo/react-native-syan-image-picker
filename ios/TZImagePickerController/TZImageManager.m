@@ -94,8 +94,8 @@ static dispatch_once_t onceToken;
     return NO;
 }
 
-- (void)requestAuthorizationWithCompletion:(void (^)())completion {
-    void (^callCompletionBlock)() = ^(){
+- (void)requestAuthorizationWithCompletion:(void (^)(void))completion {
+    void (^callCompletionBlock)(void) = ^(){
         dispatch_async(dispatch_get_main_queue(), ^{
             if (completion) {
                 completion();
@@ -399,6 +399,10 @@ static dispatch_once_t onceToken;
 
 /// Get photo bytes 获得一组照片的大小
 - (void)getPhotosBytesWithArray:(NSArray *)photos completion:(void (^)(NSString *totalBytes))completion {
+    if (!photos || !photos.count) {
+        if (completion) completion(@"0B");
+        return;
+    }
     __block NSInteger dataLength = 0;
     __block NSInteger assetCount = 0;
     for (NSInteger i = 0; i < photos.count; i++) {
@@ -626,17 +630,25 @@ static dispatch_once_t onceToken;
 }
 
 - (void)savePhotoWithImage:(UIImage *)image location:(CLLocation *)location completion:(void (^)(NSError *error))completion {
-    NSData *data = UIImageJPEGRepresentation(image, 0.9);
-    if (iOS9Later) { // 这里有坑... iOS8系统下这个方法保存图片会失败 原来是因为PHAssetResourceType是iOS9之后的...
+    if (iOS8Later) {
         [[PHPhotoLibrary sharedPhotoLibrary] performChanges:^{
-            PHAssetResourceCreationOptions *options = [[PHAssetResourceCreationOptions alloc] init];
-            options.shouldMoveFile = YES;
-            PHAssetCreationRequest *request = [PHAssetCreationRequest creationRequestForAsset];
-            [request addResourceWithType:PHAssetResourceTypePhoto data:data options:options];
-            if (location) {
-                request.location = location;
+            if (iOS9Later) {
+                NSData *data = UIImageJPEGRepresentation(image, 0.9);
+                PHAssetResourceCreationOptions *options = [[PHAssetResourceCreationOptions alloc] init];
+                options.shouldMoveFile = YES;
+                PHAssetCreationRequest *request = [PHAssetCreationRequest creationRequestForAsset];
+                [request addResourceWithType:PHAssetResourceTypePhoto data:data options:options];
+                if (location) {
+                    request.location = location;
+                }
+                request.creationDate = [NSDate date];
+            } else {
+                PHAssetChangeRequest *request = [PHAssetChangeRequest creationRequestForAssetFromImage:image];
+                if (location) {
+                    request.location = location;
+                }
+                request.creationDate = [NSDate date];
             }
-            request.creationDate = [NSDate date];
         } completionHandler:^(BOOL success, NSError *error) {
             dispatch_sync(dispatch_get_main_queue(), ^{
                 if (success && completion) {
@@ -702,7 +714,11 @@ static dispatch_once_t onceToken;
 #pragma mark - Export video
 
 /// Export Video / 导出视频
-- (void)getVideoOutputPathWithAsset:(id)asset completion:(void (^)(NSString *outputPath))completion {
+- (void)getVideoOutputPathWithAsset:(id)asset success:(void (^)(NSString *outputPath))success failure:(void (^)(NSString *errorMessage, NSError *error))failure {
+    [self getVideoOutputPathWithAsset:asset presetName:AVAssetExportPreset640x480 success:success failure:failure];
+}
+
+- (void)getVideoOutputPathWithAsset:(id)asset presetName:(NSString *)presetName success:(void (^)(NSString *outputPath))success failure:(void (^)(NSString *errorMessage, NSError *error))failure {
     if ([asset isKindOfClass:[PHAsset class]]) {
         PHVideoRequestOptions* options = [[PHVideoRequestOptions alloc] init];
         options.version = PHVideoRequestOptionsVersionOriginal;
@@ -712,16 +728,21 @@ static dispatch_once_t onceToken;
             // NSLog(@"Info:\n%@",info);
             AVURLAsset *videoAsset = (AVURLAsset*)avasset;
             // NSLog(@"AVAsset URL: %@",myAsset.URL);
-            [self startExportVideoWithVideoAsset:videoAsset completion:completion];
+            [self startExportVideoWithVideoAsset:videoAsset presetName:presetName success:success failure:failure];
         }];
     } else if ([asset isKindOfClass:[ALAsset class]]) {
         NSURL *videoURL =[asset valueForProperty:ALAssetPropertyAssetURL]; // ALAssetPropertyURLs
         AVURLAsset *videoAsset = [[AVURLAsset alloc] initWithURL:videoURL options:nil];
-        [self startExportVideoWithVideoAsset:videoAsset completion:completion];
+        [self startExportVideoWithVideoAsset:videoAsset presetName:presetName success:success failure:failure];
     }
 }
 
-- (void)startExportVideoWithVideoAsset:(AVURLAsset *)videoAsset completion:(void (^)(NSString *outputPath))completion {
+/// Deprecated, Use -getVideoOutputPathWithAsset:failure:success:
+- (void)getVideoOutputPathWithAsset:(id)asset completion:(void (^)(NSString *outputPath))completion {
+    [self getVideoOutputPathWithAsset:asset success:completion failure:nil];
+}
+
+- (void)startExportVideoWithVideoAsset:(AVURLAsset *)videoAsset presetName:(NSString *)presetName success:(void (^)(NSString *outputPath))success failure:(void (^)(NSString *errorMessage, NSError *error))failure {
     // Find compatible presets by video asset.
     NSArray *presets = [AVAssetExportSession exportPresetsCompatibleWithAsset:videoAsset];
     
@@ -729,13 +750,13 @@ static dispatch_once_t onceToken;
     // Now we just compress to low resolution if it supports
     // If you need to upload to the server, but server does't support to upload by streaming,
     // You can compress the resolution to lower. Or you can support more higher resolution.
-    if ([presets containsObject:AVAssetExportPreset640x480]) {
-        AVAssetExportSession *session = [[AVAssetExportSession alloc]initWithAsset:videoAsset presetName:AVAssetExportPreset640x480];
+    if ([presets containsObject:presetName]) {
+        AVAssetExportSession *session = [[AVAssetExportSession alloc] initWithAsset:videoAsset presetName:presetName];
         
         NSDateFormatter *formater = [[NSDateFormatter alloc] init];
         [formater setDateFormat:@"yyyy-MM-dd-HH:mm:ss-SSS"];
         NSString *outputPath = [NSHomeDirectory() stringByAppendingFormat:@"/tmp/output-%@.mp4", [formater stringFromDate:[NSDate date]]];
-        NSLog(@"video outputPath = %@",outputPath);
+        // NSLog(@"video outputPath = %@",outputPath);
         session.outputURL = [NSURL fileURLWithPath:outputPath];
         
         // Optimize for network use.
@@ -745,6 +766,9 @@ static dispatch_once_t onceToken;
         if ([supportedTypeArray containsObject:AVFileTypeMPEG4]) {
             session.outputFileType = AVFileTypeMPEG4;
         } else if (supportedTypeArray.count == 0) {
+            if (failure) {
+                failure(@"该视频类型暂不支持导出", nil);
+            }
             NSLog(@"No supported file types 视频类型暂不支持导出");
             return;
         } else {
@@ -763,26 +787,44 @@ static dispatch_once_t onceToken;
         
         // Begin to export video to the output path asynchronously.
         [session exportAsynchronouslyWithCompletionHandler:^(void) {
-            switch (session.status) {
-                case AVAssetExportSessionStatusUnknown:
-                    NSLog(@"AVAssetExportSessionStatusUnknown"); break;
-                case AVAssetExportSessionStatusWaiting:
-                    NSLog(@"AVAssetExportSessionStatusWaiting"); break;
-                case AVAssetExportSessionStatusExporting:
-                    NSLog(@"AVAssetExportSessionStatusExporting"); break;
-                case AVAssetExportSessionStatusCompleted: {
-                    NSLog(@"AVAssetExportSessionStatusCompleted");
-                    dispatch_async(dispatch_get_main_queue(), ^{
-                        if (completion) {
-                            completion(outputPath);
+            dispatch_async(dispatch_get_main_queue(), ^{
+                switch (session.status) {
+                    case AVAssetExportSessionStatusUnknown: {
+                        NSLog(@"AVAssetExportSessionStatusUnknown");
+                    }  break;
+                    case AVAssetExportSessionStatusWaiting: {
+                        NSLog(@"AVAssetExportSessionStatusWaiting");
+                    }  break;
+                    case AVAssetExportSessionStatusExporting: {
+                        NSLog(@"AVAssetExportSessionStatusExporting");
+                    }  break;
+                    case AVAssetExportSessionStatusCompleted: {
+                        NSLog(@"AVAssetExportSessionStatusCompleted");
+                        if (success) {
+                            success(outputPath);
                         }
-                    });
-                }  break;
-                case AVAssetExportSessionStatusFailed:
-                    NSLog(@"AVAssetExportSessionStatusFailed"); break;
-                default: break;
-            }
+                    }  break;
+                    case AVAssetExportSessionStatusFailed: {
+                        NSLog(@"AVAssetExportSessionStatusFailed");
+                        if (failure) {
+                            failure(@"视频导出失败", session.error);
+                        }
+                    }  break;
+                    case AVAssetExportSessionStatusCancelled: {
+                        NSLog(@"AVAssetExportSessionStatusCancelled");
+                        if (failure) {
+                            failure(@"导出任务已被取消", nil);
+                        }
+                    }  break;
+                    default: break;
+                }
+            });
         }];
+    } else {
+        if (failure) {
+            NSString *errorMessage = [NSString stringWithFormat:@"当前设备不支持该预设:%@", presetName];
+            failure(errorMessage, nil);
+        }
     }
 }
 
@@ -801,7 +843,19 @@ static dispatch_once_t onceToken;
 
 - (BOOL)isCameraRollAlbum:(id)metadata {
     if ([metadata isKindOfClass:[PHAssetCollection class]]) {
-        return ((PHAssetCollection *)metadata).assetCollectionSubtype == PHAssetCollectionSubtypeSmartAlbumUserLibrary;
+        NSString *versionStr = [[UIDevice currentDevice].systemVersion stringByReplacingOccurrencesOfString:@"." withString:@""];
+        if (versionStr.length <= 1) {
+            versionStr = [versionStr stringByAppendingString:@"00"];
+        } else if (versionStr.length <= 2) {
+            versionStr = [versionStr stringByAppendingString:@"0"];
+        }
+        CGFloat version = versionStr.floatValue;
+        // 目前已知8.0.0 ~ 8.0.2系统，拍照后的图片会保存在最近添加中
+        if (version >= 800 && version <= 802) {
+            return ((PHAssetCollection *)metadata).assetCollectionSubtype == PHAssetCollectionSubtypeSmartAlbumRecentlyAdded;
+        } else {
+            return ((PHAssetCollection *)metadata).assetCollectionSubtype == PHAssetCollectionSubtypeSmartAlbumUserLibrary;
+        }
     }
     if ([metadata isKindOfClass:[ALAssetsGroup class]]) {
         ALAssetsGroup *group = metadata;

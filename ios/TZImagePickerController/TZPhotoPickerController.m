@@ -54,10 +54,12 @@ static CGFloat itemMargin = 5;
         _imagePickerVc = [[UIImagePickerController alloc] init];
         _imagePickerVc.delegate = self;
         // set appearance / 改变相册选择页的导航栏外观
-        _imagePickerVc.navigationBar.barTintColor = self.navigationController.navigationBar.barTintColor;
+        if (iOS7Later) {
+            _imagePickerVc.navigationBar.barTintColor = self.navigationController.navigationBar.barTintColor;
+        }
         _imagePickerVc.navigationBar.tintColor = self.navigationController.navigationBar.tintColor;
         UIBarButtonItem *tzBarItem, *BarItem;
-        if (iOS9Later) {
+        if (@available(iOS 9.0, *)) {
             tzBarItem = [UIBarButtonItem appearanceWhenContainedInInstancesOfClasses:@[[TZImagePickerController class]]];
             BarItem = [UIBarButtonItem appearanceWhenContainedInInstancesOfClasses:@[[UIImagePickerController class]]];
         } else {
@@ -250,8 +252,8 @@ static CGFloat itemMargin = 5;
     [_bottomToolBar addSubview:_doneButton];
     [_bottomToolBar addSubview:_numberImageView];
     [_bottomToolBar addSubview:_numberLabel];
+    [_bottomToolBar addSubview:_originalPhotoButton];
     [self.view addSubview:_bottomToolBar];
-    [self.view addSubview:_originalPhotoButton];
     [_originalPhotoButton addSubview:_originalPhotoLabel];
 }
 
@@ -266,12 +268,13 @@ static CGFloat itemMargin = 5;
     CGFloat collectionViewHeight = 0;
     CGFloat naviBarHeight = self.navigationController.navigationBar.tz_height;
     BOOL isStatusBarHidden = [UIApplication sharedApplication].isStatusBarHidden;
+    CGFloat toolBarHeight = [TZCommonTools tz_isIPhoneX] ? 50 + (83 - 49) : 50;
     if (self.navigationController.navigationBar.isTranslucent) {
         top = naviBarHeight;
-        if (iOS7Later && !isStatusBarHidden) top += 20;
-        collectionViewHeight = tzImagePickerVc.showSelectBtn ? self.view.tz_height - 50 - top : self.view.tz_height - top;;
+        if (iOS7Later && !isStatusBarHidden) top += [TZCommonTools tz_statusBarHeight];
+        collectionViewHeight = tzImagePickerVc.showSelectBtn ? self.view.tz_height - toolBarHeight - top : self.view.tz_height - top;;
     } else {
-        collectionViewHeight = tzImagePickerVc.showSelectBtn ? self.view.tz_height - 50 : self.view.tz_height;
+        collectionViewHeight = tzImagePickerVc.showSelectBtn ? self.view.tz_height - toolBarHeight : self.view.tz_height;
     }
     _collectionView.frame = CGRectMake(0, top, self.view.tz_width, collectionViewHeight);
     CGFloat itemWH = (self.view.tz_width - (self.columnNumber + 1) * itemMargin) / self.columnNumber;
@@ -284,24 +287,24 @@ static CGFloat itemMargin = 5;
         [_collectionView setContentOffset:CGPointMake(0, offsetY)];
     }
     
-    CGFloat yOffset = 0;
+    CGFloat toolBarTop = 0;
     if (!self.navigationController.navigationBar.isHidden) {
-        yOffset = self.view.tz_height - 50;
+        toolBarTop = self.view.tz_height - toolBarHeight;
     } else {
         CGFloat navigationHeight = naviBarHeight;
-        if (iOS7Later) navigationHeight += 20;
-        yOffset = self.view.tz_height - 50 - navigationHeight;
+        if (iOS7Later) navigationHeight += [TZCommonTools tz_statusBarHeight];
+        toolBarTop = self.view.tz_height - toolBarHeight - navigationHeight;
     }
-    _bottomToolBar.frame = CGRectMake(0, yOffset, self.view.tz_width, 50);
-    CGFloat previewWidth = [tzImagePickerVc.previewBtnTitleStr boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX) options:NSStringDrawingUsesFontLeading attributes:@{NSFontAttributeName:[UIFont systemFontOfSize:16]} context:nil].size.width + 2;
+    _bottomToolBar.frame = CGRectMake(0, toolBarTop, self.view.tz_width, toolBarHeight);
+    CGFloat previewWidth = [tzImagePickerVc.previewBtnTitleStr tz_calculateSizeWithAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:16]} maxSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)].width + 2;
     if (!tzImagePickerVc.allowPreview) {
         previewWidth = 0.0;
     }
     _previewButton.frame = CGRectMake(10, 3, previewWidth, 44);
     _previewButton.tz_width = !tzImagePickerVc.showSelectBtn ? 0 : previewWidth;
     if (tzImagePickerVc.allowPickingOriginalPhoto) {
-        CGFloat fullImageWidth = [tzImagePickerVc.fullImageBtnTitleStr boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX) options:NSStringDrawingUsesFontLeading attributes:@{NSFontAttributeName:[UIFont systemFontOfSize:13]} context:nil].size.width;
-        _originalPhotoButton.frame = CGRectMake(CGRectGetMaxX(_previewButton.frame), self.view.tz_height - 50, fullImageWidth + 56, 50);
+        CGFloat fullImageWidth = [tzImagePickerVc.fullImageBtnTitleStr tz_calculateSizeWithAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:13]} maxSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)].width;
+        _originalPhotoButton.frame = CGRectMake(CGRectGetMaxX(_previewButton.frame), 0, fullImageWidth + 56, 50);
         _originalPhotoLabel.frame = CGRectMake(fullImageWidth + 46, 0, 80, 50);
     }
     _doneButton.frame = CGRectMake(self.view.tz_width - 44 - 12, 3, 44, 44);
@@ -457,10 +460,13 @@ static CGFloat itemMargin = 5;
     __weak typeof(self) weakSelf = self;
     __weak typeof(_numberImageView.layer) weakLayer = _numberImageView.layer;
     cell.didSelectPhotoBlock = ^(BOOL isSelected) {
-        TZImagePickerController *tzImagePickerVc = (TZImagePickerController *)weakSelf.navigationController;
+        __strong typeof(weakCell) strongCell = weakCell;
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        __strong typeof(weakLayer) strongLayer = weakLayer;
+        TZImagePickerController *tzImagePickerVc = (TZImagePickerController *)strongSelf.navigationController;
         // 1. cancel select / 取消选择
         if (isSelected) {
-            weakCell.selectPhotoButton.selected = NO;
+            strongCell.selectPhotoButton.selected = NO;
             model.isSelected = NO;
             NSArray *selectedModels = [NSArray arrayWithArray:tzImagePickerVc.selectedModels];
             for (TZAssetModel *model_item in selectedModels) {
@@ -469,20 +475,20 @@ static CGFloat itemMargin = 5;
                     break;
                 }
             }
-            [weakSelf refreshBottomToolBarStatus];
+            [strongSelf refreshBottomToolBarStatus];
         } else {
             // 2. select:check if over the maxImagesCount / 选择照片,检查是否超过了最大个数的限制
             if (tzImagePickerVc.selectedModels.count < tzImagePickerVc.maxImagesCount) {
-                weakCell.selectPhotoButton.selected = YES;
+                strongCell.selectPhotoButton.selected = YES;
                 model.isSelected = YES;
                 [tzImagePickerVc.selectedModels addObject:model];
-                [weakSelf refreshBottomToolBarStatus];
+                [strongSelf refreshBottomToolBarStatus];
             } else {
                 NSString *title = [NSString stringWithFormat:[NSBundle tz_localizedStringForKey:@"Select a maximum of %zd photos"], tzImagePickerVc.maxImagesCount];
                 [tzImagePickerVc showAlertWithTitle:title];
             }
         }
-        [UIView showOscillatoryAnimationWithLayer:weakLayer type:TZOscillatoryAnimationToSmaller];
+        [UIView showOscillatoryAnimationWithLayer:strongLayer type:TZOscillatoryAnimationToSmaller];
     };
     return cell;
 }
@@ -573,9 +579,11 @@ static CGFloat itemMargin = 5;
     // 提前定位
     __weak typeof(self) weakSelf = self;
     [[TZLocationManager manager] startLocationWithSuccessBlock:^(CLLocation *location, CLLocation *oldLocation) {
-        weakSelf.location = location;
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        strongSelf.location = location;
     } failureBlock:^(NSError *error) {
-        weakSelf.location = nil;
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        strongSelf.location = nil;
     }];
     
     UIImagePickerControllerSourceType sourceType = UIImagePickerControllerSourceTypeCamera;
@@ -610,16 +618,19 @@ static CGFloat itemMargin = 5;
     __weak typeof(self) weakSelf = self;
     photoPreviewVc.isSelectOriginalPhoto = _isSelectOriginalPhoto;
     [photoPreviewVc setBackButtonClickBlock:^(BOOL isSelectOriginalPhoto) {
-        weakSelf.isSelectOriginalPhoto = isSelectOriginalPhoto;
-        [weakSelf.collectionView reloadData];
-        [weakSelf refreshBottomToolBarStatus];
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        strongSelf.isSelectOriginalPhoto = isSelectOriginalPhoto;
+        [strongSelf.collectionView reloadData];
+        [strongSelf refreshBottomToolBarStatus];
     }];
     [photoPreviewVc setDoneButtonClickBlock:^(BOOL isSelectOriginalPhoto) {
-        weakSelf.isSelectOriginalPhoto = isSelectOriginalPhoto;
-        [weakSelf doneButtonClick];
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        strongSelf.isSelectOriginalPhoto = isSelectOriginalPhoto;
+        [strongSelf doneButtonClick];
     }];
     [photoPreviewVc setDoneButtonClickBlockCropMode:^(UIImage *cropedImage, id asset) {
-        [weakSelf didGetAllPhotos:@[cropedImage] assets:@[asset] infoArr:nil];
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        [strongSelf didGetAllPhotos:@[cropedImage] assets:@[asset] infoArr:nil];
     }];
     [self.navigationController pushViewController:photoPreviewVc animated:YES];
 }

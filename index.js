@@ -19,7 +19,8 @@ const defaultOptions = {
     showCropCircle: false,     // 是否显示圆形裁剪区域，默认false
     circleCropRadius: width/2, // 圆形裁剪半径，默认屏幕宽度一半
     showCropFrame: true,       // 是否显示裁剪区域，默认true
-    showCropGrid: false        // 是否隐藏裁剪区域网格，默认false
+    showCropGrid: false,       // 是否隐藏裁剪区域网格，默认false
+    quality: 90                // 压缩质量
 };
 
 export default {
@@ -81,5 +82,18 @@ export default {
           ...options,
         };
         return RNSyanImagePicker.asyncShowImagePicker(optionObj);
+    },
+
+    /**
+     * 打开相机支持裁剪参数
+     * @param options
+     * @param callback
+     */
+    openCamera(options, callback) {
+        const optionObj = {
+                ...defaultOptions,
+            ...options
+        };
+        RNSyanImagePicker.openCamera(optionObj, callback)
     }
 };

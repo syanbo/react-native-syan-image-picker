@@ -4,8 +4,8 @@
 #else
 #import <React/RCTBridgeModule.h>
 #endif
-
-@interface RNSyanImagePicker : NSObject <RCTBridgeModule>
+#import <UIKit/UIKit.h>
+@interface RNSyanImagePicker : NSObject <RCTBridgeModule, UINavigationControllerDelegate, UIImagePickerControllerDelegate, UIActionSheetDelegate>
 
 @end
   

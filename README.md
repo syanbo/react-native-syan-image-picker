@@ -7,7 +7,7 @@
 
  Android 基于 [PictureSelector 2.0](https://github.com/LuckSiege/PictureSelector)
 
- iOS 基于 [TZImagePickerController 1.9.0](https://github.com/banchichen/TZImagePickerController)
+ iOS 基于 [TZImagePickerController 1.9.5](https://github.com/banchichen/TZImagePickerController)
 
 ![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_001.png?imageView/2/w/268)
 ![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_002.png?imageView/2/w/268)
@@ -115,7 +115,8 @@ import SYImagePicker from 'react-native-syan-image-picker'
       showCropCircle: false,     // 是否显示圆形裁剪区域，默认false
       circleCropRadius: width/2  // 圆形裁剪半径，默认屏幕宽度一半
       showCropFrame: true,       // 是否显示裁剪区域，默认true
-      showCropGrid: false        // 是否隐藏裁剪区域网格，默认false
+      showCropGrid: false,       // 是否隐藏裁剪区域网格，默认false
+      quality: 90                // 压缩质量
   };
 
   /**
@@ -125,7 +126,7 @@ import SYImagePicker from 'react-native-syan-image-picker'
      *  1）选择图片成功，err为null，selectedPhotos为选中的图片数组
      *  2）取消时，err返回"取消"，selectedPhotos将为undefined
      *  按需判断各参数值，确保调用正常，示例使用方式：
-     *      showImagePicker(options, (err, selectedPhotos) => {
+     *      SYImagePicker.showImagePicker(options, (err, selectedPhotos) => {
      *          if (err) {
      *              // 取消选择
      *              return;
@@ -163,6 +164,19 @@ import SYImagePicker from 'react-native-syan-image-picker'
       * @param {Object} options 相册参数
       * @return {Promise} 返回一个Promise对象
      */
+     
+    /**
+     * 打开相机
+     * @param options
+     * @param callback
+     */
+     *      SYImagePicker.openCamera(options, (err, selectedPhotos) => {
+     *          if (err) {
+     *              // 取消选择
+     *              return;
+     *          }
+     *          // 选择成功
+     *      })    
 
 ```
 ## 帮助

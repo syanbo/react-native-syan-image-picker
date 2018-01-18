@@ -58,6 +58,9 @@
 - (void)configMoviePlayer {
     [[TZImageManager manager] getPhotoWithAsset:_model.asset completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
         _cover = photo;
+        if (!isDegraded && photo) {
+            _doneButton.enabled = YES;
+        }
     }];
     [[TZImageManager manager] getVideoWithAsset:_model.asset completion:^(AVPlayerItem *playerItem, NSDictionary *info) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -101,6 +104,7 @@
     
     _doneButton = [UIButton buttonWithType:UIButtonTypeCustom];
     _doneButton.titleLabel.font = [UIFont systemFontOfSize:16];
+    _doneButton.enabled = NO;
     [_doneButton addTarget:self action:@selector(doneButtonClick) forControlEvents:UIControlEventTouchUpInside];
     TZImagePickerController *tzImagePickerVc = (TZImagePickerController *)self.navigationController;
     if (tzImagePickerVc) {
@@ -110,6 +114,7 @@
         [_doneButton setTitle:[NSBundle tz_localizedStringForKey:@"Done"] forState:UIControlStateNormal];
         [_doneButton setTitleColor:[UIColor colorWithRed:(83/255.0) green:(179/255.0) blue:(17/255.0) alpha:1.0] forState:UIControlStateNormal];
     }
+    [_doneButton setTitleColor:tzImagePickerVc.oKButtonTitleColorDisabled forState:UIControlStateDisabled];
     [_toolBar addSubview:_doneButton];
     [self.view addSubview:_toolBar];
 }
@@ -119,10 +124,13 @@
 - (void)viewDidLayoutSubviews {
     [super viewDidLayoutSubviews];
     
+    CGFloat statusBarHeight = [TZCommonTools tz_statusBarHeight];
+    CGFloat statusBarAndNaviBarHeight = statusBarHeight + self.navigationController.navigationBar.tz_height;
     _playerLayer.frame = self.view.bounds;
-    _playButton.frame = CGRectMake(0, 64, self.view.tz_width, self.view.tz_height - 64 - 44);
+    CGFloat toolBarHeight = [TZCommonTools tz_isIPhoneX] ? 44 + (83 - 49) : 44;
+    _toolBar.frame = CGRectMake(0, self.view.tz_height - toolBarHeight, self.view.tz_width, toolBarHeight);
     _doneButton.frame = CGRectMake(self.view.tz_width - 44 - 12, 0, 44, 44);
-    _toolBar.frame = CGRectMake(0, self.view.tz_height - 44, self.view.tz_width, 44);
+    _playButton.frame = CGRectMake(0, statusBarAndNaviBarHeight, self.view.tz_width, self.view.tz_height - statusBarAndNaviBarHeight - toolBarHeight);
 }
 
 #pragma mark - Click Event
@@ -136,9 +144,7 @@
         [self.navigationController setNavigationBarHidden:YES];
         _toolBar.hidden = YES;
         [_playButton setImage:nil forState:UIControlStateNormal];
-        if (!TZ_isGlobalHideStatusBar) {
-            if (iOS7Later) [UIApplication sharedApplication].statusBarHidden = YES;
-        }
+        if (iOS7Later) [UIApplication sharedApplication].statusBarHidden = YES;
     } else {
         [self pausePlayerAndShowNaviBar];
     }
@@ -179,8 +185,9 @@
     [self.navigationController setNavigationBarHidden:NO];
     [_playButton setImage:[UIImage imageNamedFromMyBundle:@"MMVideoPreviewPlay"] forState:UIControlStateNormal];
     
-    if (!TZ_isGlobalHideStatusBar) {
-        if (iOS7Later) [UIApplication sharedApplication].statusBarHidden = NO;
+    TZImagePickerController *tzImagePickerVc = (TZImagePickerController *)self.navigationController;
+    if (tzImagePickerVc.needShowStatusBar && iOS7Later) {
+        [UIApplication sharedApplication].statusBarHidden = NO;
     }
 }
 

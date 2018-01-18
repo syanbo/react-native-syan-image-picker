@@ -4,7 +4,7 @@
 //
 //  Created by 谭真 on 15/12/24.
 //  Copyright © 2015年 谭真. All rights reserved.
-//  version 1.9.3 - 2017.09.13
+//  version 1.9.8 - 2017.12.19
 //  更多信息，请前往项目的github地址：https://github.com/banchichen/TZImagePickerController
 
 /*
@@ -24,8 +24,6 @@
 #define iOS8Later ([UIDevice currentDevice].systemVersion.floatValue >= 8.0f)
 #define iOS9Later ([UIDevice currentDevice].systemVersion.floatValue >= 9.0f)
 #define iOS9_1Later ([UIDevice currentDevice].systemVersion.floatValue >= 9.1f)
-
-#define TZ_isGlobalHideStatusBar [[[NSBundle mainBundle] objectForInfoDictionaryKey:@"UIStatusBarHidden"] boolValue]
 
 @protocol TZImagePickerControllerDelegate;
 @interface TZImagePickerController : UINavigationController
@@ -126,6 +124,7 @@
 - (void)showProgressHUD;
 - (void)hideProgressHUD;
 @property (nonatomic, assign) BOOL isSelectOriginalPhoto;
+@property (assign, nonatomic) BOOL needShowStatusBar;
 
 @property (nonatomic, copy) NSString *takePictureImageName;
 @property (nonatomic, copy) NSString *photoSelImageName;
@@ -166,7 +165,7 @@
 // photos数组里的UIImage对象，默认是828像素宽，你可以通过设置photoWidth属性的值来改变它
 @property (nonatomic, copy) void (^didFinishPickingPhotosHandle)(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto);
 @property (nonatomic, copy) void (^didFinishPickingPhotosWithInfosHandle)(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos);
-@property (nonatomic, copy) void (^imagePickerControllerDidCancelHandle)();
+@property (nonatomic, copy) void (^imagePickerControllerDidCancelHandle)(void);
 
 // If user picking a video, this handle will be called.
 // If system version > iOS8,asset is kind of PHAsset class, else is ALAsset class.
@@ -233,5 +232,12 @@
 
 @interface NSString (TzExtension)
 - (BOOL)tz_containsString:(NSString *)string;
+- (CGSize)tz_calculateSizeWithAttributes:(NSDictionary *)attributes maxSize:(CGSize)maxSize;
+@end
+
+
+@interface TZCommonTools : NSObject
++ (BOOL)tz_isIPhoneX;
++ (CGFloat)tz_statusBarHeight;
 @end
 

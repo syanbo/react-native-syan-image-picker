@@ -51,7 +51,6 @@
     if (!self.models.count) {
         self.models = [NSMutableArray arrayWithArray:_tzImagePickerVc.selectedModels];
         _assetsTemp = [NSMutableArray arrayWithArray:_tzImagePickerVc.selectedAssets];
-        self.isSelectOriginalPhoto = _tzImagePickerVc.isSelectOriginalPhoto;
     }
     [self configCollectionView];
     [self configCustomNaviBar];
@@ -68,9 +67,7 @@
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     [self.navigationController setNavigationBarHidden:YES animated:YES];
-    if (!TZ_isGlobalHideStatusBar) {
-        if (iOS7Later) [UIApplication sharedApplication].statusBarHidden = YES;
-    }
+    if (iOS7Later) [UIApplication sharedApplication].statusBarHidden = YES;
     if (_currentIndex) [_collectionView setContentOffset:CGPointMake((self.view.tz_width + 20) * _currentIndex, 0) animated:NO];
     [self refreshNaviBarAndBottomBarState];
 }
@@ -78,8 +75,9 @@
 - (void)viewWillDisappear:(BOOL)animated {
     [super viewWillDisappear:animated];
     [self.navigationController setNavigationBarHidden:NO animated:YES];
-    if (!TZ_isGlobalHideStatusBar) {
-        if (iOS7Later) [UIApplication sharedApplication].statusBarHidden = NO;
+    TZImagePickerController *tzImagePickerVc = (TZImagePickerController *)self.navigationController;
+    if (tzImagePickerVc.needShowStatusBar && iOS7Later) {
+        [UIApplication sharedApplication].statusBarHidden = NO;
     }
     [TZImageManager manager].shouldFixOrientation = NO;
 }
@@ -183,7 +181,7 @@
 
 - (void)configCropView {
     TZImagePickerController *_tzImagePickerVc = (TZImagePickerController *)self.navigationController;
-    if (!_tzImagePickerVc.showSelectBtn && _tzImagePickerVc.allowCrop) {
+    if (_tzImagePickerVc.maxImagesCount <= 1 && _tzImagePickerVc.allowCrop) {
         [_cropView removeFromSuperview];
         [_cropBgView removeFromSuperview];
         
@@ -208,6 +206,9 @@
         if (_tzImagePickerVc.cropViewSettingBlock) {
             _tzImagePickerVc.cropViewSettingBlock(_cropView);
         }
+        
+        [self.view bringSubviewToFront:_naviBar];
+        [self.view bringSubviewToFront:_toolBar];
     }
 }
 
@@ -217,9 +218,12 @@
     [super viewDidLayoutSubviews];
     TZImagePickerController *_tzImagePickerVc = (TZImagePickerController *)self.navigationController;
 
-    _naviBar.frame = CGRectMake(0, 0, self.view.tz_width, 64);
-    _backButton.frame = CGRectMake(10, 10, 44, 44);
-    _selectButton.frame = CGRectMake(self.view.tz_width - 54, 10, 42, 42);
+    CGFloat statusBarHeight = [TZCommonTools tz_statusBarHeight];
+    CGFloat statusBarHeightInterval = statusBarHeight - 20;
+    CGFloat naviBarHeight = statusBarHeight + _tzImagePickerVc.navigationBar.tz_height;
+    _naviBar.frame = CGRectMake(0, 0, self.view.tz_width, naviBarHeight);
+    _backButton.frame = CGRectMake(10, 10 + statusBarHeightInterval, 44, 44);
+    _selectButton.frame = CGRectMake(self.view.tz_width - 54, 10 + statusBarHeightInterval, 42, 42);
     
     _layout.itemSize = CGSizeMake(self.view.tz_width + 20, self.view.tz_height);
     _layout.minimumInteritemSpacing = 0;
@@ -234,9 +238,11 @@
         [_collectionView reloadData];
     }
     
-    _toolBar.frame = CGRectMake(0, self.view.tz_height - 44, self.view.tz_width, 44);
+    CGFloat toolBarHeight = [TZCommonTools tz_isIPhoneX] ? 44 + (83 - 49) : 44;
+    CGFloat toolBarTop = self.view.tz_height - toolBarHeight;
+    _toolBar.frame = CGRectMake(0, toolBarTop, self.view.tz_width, toolBarHeight);
     if (_tzImagePickerVc.allowPickingOriginalPhoto) {
-        CGFloat fullImageWidth = [_tzImagePickerVc.fullImageBtnTitleStr boundingRectWithSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX) options:NSStringDrawingUsesFontLeading attributes:@{NSFontAttributeName:[UIFont systemFontOfSize:13]} context:nil].size.width;
+        CGFloat fullImageWidth = [_tzImagePickerVc.fullImageBtnTitleStr tz_calculateSizeWithAttributes:@{NSFontAttributeName:[UIFont systemFontOfSize:13]} maxSize:CGSizeMake(CGFLOAT_MAX, CGFLOAT_MAX)].width;
         _originalPhotoButton.frame = CGRectMake(0, 0, fullImageWidth + 56, 44);
         _originalPhotoLabel.frame = CGRectMake(fullImageWidth + 42, 0, 80, 44);
     }
@@ -420,13 +426,17 @@
         __weak typeof(_collectionView) weakCollectionView = _collectionView;
         __weak typeof(photoPreviewCell) weakCell = photoPreviewCell;
         [photoPreviewCell setImageProgressUpdateBlock:^(double progress) {
-            weakSelf.progress = progress;
+            __strong typeof(weakSelf) strongSelf = weakSelf;
+            __strong typeof(weakTzImagePickerVc) strongTzImagePickerVc = weakTzImagePickerVc;
+            __strong typeof(weakCollectionView) strongCollectionView = weakCollectionView;
+            __strong typeof(weakCell) strongCell = weakCell;
+            strongSelf.progress = progress;
             if (progress >= 1) {
-                if (weakSelf.isSelectOriginalPhoto) [weakSelf showPhotoBytes];
-                if (weakSelf.alertView && [weakCollectionView.visibleCells containsObject:weakCell]) {
-                    [weakTzImagePickerVc hideAlertView:weakSelf.alertView];
-                    weakSelf.alertView = nil;
-                    [weakSelf doneButtonClick];
+                if (strongSelf.isSelectOriginalPhoto) [strongSelf showPhotoBytes];
+                if (strongSelf.alertView && [strongCollectionView.visibleCells containsObject:strongCell]) {
+                    [strongTzImagePickerVc hideAlertView:strongSelf.alertView];
+                    strongSelf.alertView = nil;
+                    [strongSelf doneButtonClick];
                 }
             }
         }];
@@ -434,7 +444,8 @@
     
     cell.model = model;
     [cell setSingleTapGestureBlock:^{
-        [weakSelf didTapPreviewCell];
+        __strong typeof(weakSelf) strongSelf = weakSelf;
+        [strongSelf didTapPreviewCell];
     }];
     return cell;
 }
