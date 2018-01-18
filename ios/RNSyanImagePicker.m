@@ -67,7 +67,7 @@ RCT_REMAP_METHOD(asyncShowImagePicker,
     NSInteger CropW      = [options sy_integerForKey:@"CropW"];
     NSInteger CropH      = [options sy_integerForKey:@"CropH"];
     NSInteger circleCropRadius = [options sy_integerForKey:@"circleCropRadius"];
-    NSInteger   quality  = [self.cameraOptions sy_integerForKey:@"quality"];
+    NSInteger   quality  = [options sy_integerForKey:@"quality"];
 
     TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:nil];
 
