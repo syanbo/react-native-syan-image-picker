@@ -65,11 +65,13 @@
   <uses-permission android:name="android.permission.CAMERA" />
   ```
   
-  - 更新到PictureSelector 2.2.0
-  在安卓文件app下修改build.gradle
+ - 更新到PictureSelector 2.2.0
+ ```
+    在安卓文件app下修改build.gradle
     compileSdkVersion 26
     buildToolsVersion "26.0.3"
-  
+ ```
+ 
 - 注意 安装运行报错
 1. 检查自动link是否成功 
 2. 使用Android Studio 查看MainApplication文件是否添加new RNSyanImagePickerPackage()
