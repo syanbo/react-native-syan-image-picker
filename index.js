@@ -95,5 +95,12 @@ export default {
             ...options
         };
         RNSyanImagePicker.openCamera(optionObj, callback)
+    },
+
+    /**
+     * 清除缓存
+     */
+    deleteCache() {
+        RNSyanImagePicker.deleteCache()
     }
 };

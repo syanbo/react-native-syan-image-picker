@@ -9,9 +9,7 @@
 @interface RNSyanImagePicker ()
 
 @property (nonatomic, strong) UIImagePickerController *imagePickerVc;
-
 @property (nonatomic, strong) NSDictionary *cameraOptions;
-
 /**
  保存Promise的resolve block
  */
@@ -29,14 +27,6 @@
 @implementation RNSyanImagePicker
 
 RCT_EXPORT_MODULE()
-
-- (UIImagePickerController *)imagePickerVc {
-    if (_imagePickerVc == nil) {
-        _imagePickerVc = [[UIImagePickerController alloc] init];
-        _imagePickerVc.delegate = self;
-    }
-    return _imagePickerVc;
-}
 
 RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options
                          callback:(RCTResponseSenderBlock)callback) {
@@ -56,6 +46,20 @@ RCT_REMAP_METHOD(asyncShowImagePicker,
     [self openImagePickerWithOptions:options];
 }
 
+RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback) {
+    self.cameraOptions = options;
+    
+    self.callback = callback;
+    self.resolveBlock = nil;
+    self.rejectBlock = nil;
+    [self takePhoto];
+}
+
+RCT_EXPORT_METHOD(deleteCache) {
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    [fileManager removeItemAtPath: [NSString stringWithFormat:@"%@ImageCaches", NSTemporaryDirectory()] error:nil];
+}
+
 - (void)openImagePickerWithOptions:(NSDictionary *)options {
     // 照片最大可选张数
     NSInteger imageCount = [options sy_integerForKey:@"imageCount"];
@@ -67,7 +71,7 @@ RCT_REMAP_METHOD(asyncShowImagePicker,
     NSInteger CropW      = [options sy_integerForKey:@"CropW"];
     NSInteger CropH      = [options sy_integerForKey:@"CropH"];
     NSInteger circleCropRadius = [options sy_integerForKey:@"circleCropRadius"];
-    NSInteger   quality  = [options sy_integerForKey:@"quality"];
+    NSInteger   quality  = [self.cameraOptions sy_integerForKey:@"quality"];
 
     TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:nil];
 
@@ -94,26 +98,19 @@ RCT_REMAP_METHOD(asyncShowImagePicker,
             }
         }
     }
-  
+    
     __block TZImagePickerController *weakPicker = imagePickerVc;
     [imagePickerVc setDidFinishPickingPhotosWithInfosHandle:^(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos) {
           NSMutableArray *selectedPhotos = [NSMutableArray array];
           [weakPicker showProgressHUD];
-      
           if (imageCount == 1 && isCrop) {
-              
               [selectedPhotos addObject:[self handleImageData:photos[0] quality:quality]];
-              
           } else {
                 [infos enumerateObjectsUsingBlock:^(NSDictionary * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-    
                     [selectedPhotos addObject:[self handleImageData:photos[idx] quality:quality]];
-                    
                 }];
             }
-      
         [self invokeSuccessWithResult:selectedPhotos];
-      
         [weakPicker hideProgressHUD];
     }];
   
@@ -124,17 +121,15 @@ RCT_REMAP_METHOD(asyncShowImagePicker,
     [[self topViewController] presentViewController:imagePickerVc animated:YES completion:nil];
 }
 
-RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback) {
-    self.cameraOptions = options;
-    
-    self.callback = callback;
-    self.resolveBlock = nil;
-    self.rejectBlock = nil;
-    [self takePhoto];
+- (UIImagePickerController *)imagePickerVc {
+    if (_imagePickerVc == nil) {
+        _imagePickerVc = [[UIImagePickerController alloc] init];
+        _imagePickerVc.delegate = self;
+    }
+    return _imagePickerVc;
 }
 
 #pragma mark - UIImagePickerController
-
 - (void)takePhoto {
     AVAuthorizationStatus authStatus = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
     if ((authStatus == AVAuthorizationStatusRestricted || authStatus == AVAuthorizationStatusDenied) && iOS7Later) {
@@ -179,7 +174,6 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
 
 // 调用相机
 - (void)pushImagePickerController {
-
     UIImagePickerControllerSourceType sourceType = UIImagePickerControllerSourceTypeCamera;
     if ([UIImagePickerController isSourceTypeAvailable: UIImagePickerControllerSourceTypeCamera]) {
         self.imagePickerVc.sourceType = sourceType;
@@ -187,7 +181,6 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
             self.imagePickerVc.modalPresentationStyle = UIModalPresentationOverCurrentContext;
         }
         [[self topViewController] presentViewController:self.imagePickerVc animated:YES completion:nil];
-       
     } else {
         NSLog(@"模拟器中无法打开照相机,请在真机中使用");
     }
@@ -209,12 +202,11 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
                 [tzImagePickerVc hideProgressHUD];
                 NSLog(@"图片保存失败 %@",error);
             } else {
-                [[TZImageManager manager] getCameraRollAlbum:NO allowPickingImage:YES completion:^(TZAlbumModel *model) {
+                [[TZImageManager manager] getCameraRollAlbum:NO allowPickingImage:YES needFetchAssets:YES completion:^(TZAlbumModel *model) {
                     [[TZImageManager manager] getAssetsFromFetchResult:model.result allowPickingVideo:NO allowPickingImage:YES completion:^(NSArray<TZAssetModel *> *models) {
                         [tzImagePickerVc hideProgressHUD];
                         
                         TZAssetModel *assetModel = [models firstObject];
-                        
                         BOOL isCrop          = [self.cameraOptions sy_boolForKey:@"isCrop"];
                         BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
                         NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
@@ -226,7 +218,6 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
                             TZImagePickerController *imagePicker = [[TZImagePickerController alloc] initCropTypeWithAsset:assetModel.asset photo:image completion:^(UIImage *cropImage, id asset) {
                                 [self invokeSuccessWithResult:@[[self handleImageData:cropImage quality:quality]]];
                             }];
-                            
                             imagePicker.allowCrop = isCrop;   // 裁剪
                             if(showCropCircle) {
                                 imagePicker.needCircleCrop = showCropCircle; //圆形裁剪
@@ -236,12 +227,10 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
                                 CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
                                 imagePicker.cropRect = CGRectMake(x,y,CropW,CropH);
                             }
-                            
                             [[self topViewController] presentViewController:imagePicker animated:YES completion:nil];
                         } else {
                             [self invokeSuccessWithResult:@[[self handleImageData:image quality:quality]]];
                         }
-                        
                     }];
                 }];
             }
@@ -257,7 +246,6 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
 }
 
 #pragma mark - UIAlertViewDelegate
-
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == 1) { // 去设置界面，开启相机访问权限
         if (iOS8Later) {
@@ -273,13 +261,16 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
     photo[@"height"] = @(image.size.height);
     
     NSString *fileName = [NSString stringWithFormat:@"%@.jpg", [[NSUUID UUID] UUIDString]];
-    NSString *filePath = [NSString stringWithFormat:@"%@/tmp/%@", NSHomeDirectory(), fileName];
+    [self createDir];
+    NSString *filePath = [NSString stringWithFormat:@"%@ImageCaches/%@", NSTemporaryDirectory(), fileName];
     if ([UIImageJPEGRepresentation(image, quality/100) writeToFile:filePath atomically:YES]) {
         photo[@"uri"] = filePath;
     } else {
-        NSLog(@"保存压缩图片失败");
+        NSLog(@"保存压缩图片失败%@", filePath);
     }
-    
+    NSData *data = UIImageJPEGRepresentation(image, quality/100);
+    NSString *dataString = [data base64EncodedStringWithOptions:0]; // base64 encoded image string
+    photo[@"base64"] = dataString;
     return photo;
 }
 
@@ -305,14 +296,23 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
     }
 }
 
+- (BOOL)createDir {
+    NSString * path = [NSString stringWithFormat:@"%@ImageCaches", NSTemporaryDirectory()];;
+    NSFileManager *fileManager = [NSFileManager defaultManager];
+    BOOL isDir;
+    if  (![fileManager fileExistsAtPath:path isDirectory:&isDir]) {//先判断目录是否存在，不存在才创建
+        BOOL res=[fileManager createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:nil];
+        return res;
+    } else return NO;
+}
+
 - (UIViewController *)topViewController {
-//    UIViewController *rootViewController = [[[UIApplication sharedApplication] keyWindow] rootViewController];
+//  UIViewController *rootViewController = [[[UIApplication sharedApplication] keyWindow] rootViewController];
     UIViewController *rootViewController = RCTPresentedViewController();
     return rootViewController;
 }
 
-- (dispatch_queue_t)methodQueue
-{
+- (dispatch_queue_t)methodQueue {
     return dispatch_get_main_queue();
 }
 

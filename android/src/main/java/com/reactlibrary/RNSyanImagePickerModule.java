@@ -3,7 +3,9 @@ package com.reactlibrary;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.util.Base64;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.BaseActivityEventListener;
@@ -18,11 +20,12 @@ import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.bridge.WritableNativeArray;
 import com.facebook.react.bridge.WritableNativeMap;
 import com.luck.picture.lib.PictureSelector;
-import com.luck.picture.lib.compress.Luban;
 import com.luck.picture.lib.config.PictureConfig;
 import com.luck.picture.lib.config.PictureMimeType;
 import com.luck.picture.lib.entity.LocalMedia;
+import com.luck.picture.lib.tools.PictureFileUtils;
 
+import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -70,10 +73,18 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         this.openCamera(options);
     }
 
+    /**
+     * 缓存清除
+     * 包括裁剪和压缩后的缓存，要在上传成功后调用，注意：需要系统sd卡权限
+     */
+    @ReactMethod
+    public void deleteCache() {
+        Activity currentActivity = getCurrentActivity();
+        PictureFileUtils.deleteCacheDirFile(currentActivity);
+    }
 
     /**
      * 打开相册选择
-     *
      * @param options 相册参数
      */
     private void openImagePicker(ReadableMap options) {
@@ -132,9 +143,8 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     }
 
     /**
-     * 打开相册选择
-     *
-     * @param options 相册参数
+     * 打开相机
+     * @param options
      */
     private void openCamera(ReadableMap options) {
         boolean isCrop = options.getBoolean("isCrop");
@@ -179,6 +189,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                         WritableMap aImage = new WritableNativeMap();
 
                         BitmapFactory.Options options = new BitmapFactory.Options();
+
                         options.inJustDecodeBounds = true;
                         if (!media.isCompressed()) {
                             BitmapFactory.decodeFile(media.getPath(), options);
@@ -186,6 +197,18 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                             aImage.putDouble("height", options.outHeight);
                             aImage.putString("type", "image");
                             aImage.putString("uri", "file://" + media.getPath());
+
+                            //decode to bitmap
+                            Bitmap bitmap = BitmapFactory.decodeFile(media.getPath());
+                            //convert to byte array
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+                            byte[] bytes = baos.toByteArray();
+                            //base64 encode
+                            byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
+                            String encodeString = new String(encode);
+                            aImage.putString("base64", encodeString);
+
                         } else {
                             // 压缩过，取 media.getCompressPath();
                             BitmapFactory.decodeFile(media.getCompressPath(), options);
@@ -193,6 +216,17 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                             aImage.putDouble("height", options.outHeight);
                             aImage.putString("type", "image");
                             aImage.putString("uri", "file://" + media.getCompressPath());
+
+                            //decode to bitmap
+                            Bitmap bitmap = BitmapFactory.decodeFile(media.getCompressPath());
+                            //convert to byte array
+                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+                            byte[] bytes = baos.toByteArray();
+                            //base64 encode
+                            byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
+                            String encodeString = new String(encode);
+                            aImage.putString("base64", encodeString);
                         }
 
                         if (media.isCut()) {
@@ -214,7 +248,6 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     /**
      * 选择照片成功时触发
-     *
      * @param imageList 图片数组
      */
     private void invokeSuccessWithResult(WritableArray imageList) {
