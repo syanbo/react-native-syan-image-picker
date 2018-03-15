@@ -5,9 +5,9 @@
 
  多图片选择器
 
- Android 基于 [PictureSelector 2.0](https://github.com/LuckSiege/PictureSelector)
+ Android 基于 [PictureSelector 2.2.0](https://github.com/LuckSiege/PictureSelector)
 
- iOS 基于 [TZImagePickerController 1.9.5](https://github.com/banchichen/TZImagePickerController)
+ iOS 基于 [TZImagePickerController 2.0.0.4](https://github.com/banchichen/TZImagePickerController)
 
 ![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_001.png?imageView/2/w/268)
 ![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_002.png?imageView/2/w/268)
@@ -64,6 +64,12 @@
   <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
   <uses-permission android:name="android.permission.CAMERA" />
   ```
+  
+  - 更新到PictureSelector 2.2.0
+  在安卓文件app下修改build.gradle
+    compileSdkVersion 26
+    buildToolsVersion "26.0.3"
+  
 - 注意 安装运行报错
 1. 检查自动link是否成功 
 2. 使用Android Studio 查看MainApplication文件是否添加new RNSyanImagePickerPackage()
