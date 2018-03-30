@@ -41,6 +41,8 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     private Promise mPickerPromise; // 保存Promise
 
+    private ReadableMap cameraOptions; // 保存图片选择/相机选项
+
     public RNSyanImagePickerModule(ReactApplicationContext reactContext) {
         super(reactContext);
         this.reactContext = reactContext;
@@ -54,23 +56,26 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     @ReactMethod
     public void showImagePicker(ReadableMap options, Callback callback) {
+        this.cameraOptions = options;
         this.mPickerPromise = null;
         this.mPickerCallback = callback;
-        this.openImagePicker(options);
+        this.openImagePicker();
     }
 
     @ReactMethod
     public void asyncShowImagePicker(ReadableMap options, Promise promise) {
+        this.cameraOptions = options;
         this.mPickerCallback = null;
         this.mPickerPromise = promise;
-        this.openImagePicker(options);
+        this.openImagePicker();
     }
 
     @ReactMethod
     public void openCamera(ReadableMap options, Callback callback) {
+        this.cameraOptions = options;
         this.mPickerPromise = null;
         this.mPickerCallback = callback;
-        this.openCamera(options);
+        this.openCamera();
     }
 
     /**
@@ -85,19 +90,18 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     /**
      * 打开相册选择
-     * @param options 相册参数
      */
-    private void openImagePicker(ReadableMap options) {
-        int imageCount = options.getInt("imageCount");
-        boolean isCamera = options.getBoolean("isCamera");
-        boolean isCrop = options.getBoolean("isCrop");
-        int CropW = options.getInt("CropW");
-        int CropH = options.getInt("CropH");
-        boolean isGif = options.getBoolean("isGif");
-        boolean showCropCircle = options.getBoolean("showCropCircle");
-        boolean showCropFrame = options.getBoolean("showCropFrame");
-        boolean showCropGrid = options.getBoolean("showCropGrid");
-        int quality = options.getInt("quality");
+    private void openImagePicker() {
+        int imageCount = this.cameraOptions.getInt("imageCount");
+        boolean isCamera = this.cameraOptions.getBoolean("isCamera");
+        boolean isCrop = this.cameraOptions.getBoolean("isCrop");
+        int CropW = this.cameraOptions.getInt("CropW");
+        int CropH = this.cameraOptions.getInt("CropH");
+        boolean isGif = this.cameraOptions.getBoolean("isGif");
+        boolean showCropCircle = this.cameraOptions.getBoolean("showCropCircle");
+        boolean showCropFrame = this.cameraOptions.getBoolean("showCropFrame");
+        boolean showCropGrid = this.cameraOptions.getBoolean("showCropGrid");
+        int quality = this.cameraOptions.getInt("quality");
 
         int modeValue;
         if (imageCount == 1) {
@@ -144,16 +148,15 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     /**
      * 打开相机
-     * @param options
      */
-    private void openCamera(ReadableMap options) {
-        boolean isCrop = options.getBoolean("isCrop");
-        int CropW = options.getInt("CropW");
-        int CropH = options.getInt("CropH");
-        boolean showCropCircle = options.getBoolean("showCropCircle");
-        boolean showCropFrame = options.getBoolean("showCropFrame");
-        boolean showCropGrid = options.getBoolean("showCropGrid");
-        int quality = options.getInt("quality");
+    private void openCamera() {
+        boolean isCrop = this.cameraOptions.getBoolean("isCrop");
+        int CropW = this.cameraOptions.getInt("CropW");
+        int CropH = this.cameraOptions.getInt("CropH");
+        boolean showCropCircle = this.cameraOptions.getBoolean("showCropCircle");
+        boolean showCropFrame = this.cameraOptions.getBoolean("showCropFrame");
+        boolean showCropGrid = this.cameraOptions.getBoolean("showCropGrid");
+        int quality = this.cameraOptions.getInt("quality");
 
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
@@ -205,10 +208,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                             bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
                             byte[] bytes = baos.toByteArray();
                             //base64 encode
-                            byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
-                            String encodeString = new String(encode);
-                            aImage.putString("base64", encodeString);
-
+                            if (cameraOptions.getBoolean("enableBase64")) {
+                                byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
+                                String encodeString = new String(encode);
+                                aImage.putString("base64", encodeString);
+                            }
                         } else {
                             // 压缩过，取 media.getCompressPath();
                             BitmapFactory.decodeFile(media.getCompressPath(), options);
@@ -224,9 +228,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                             bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
                             byte[] bytes = baos.toByteArray();
                             //base64 encode
-                            byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
-                            String encodeString = new String(encode);
-                            aImage.putString("base64", encodeString);
+                            if (cameraOptions.getBoolean("enableBase64")) {
+                                byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
+                                String encodeString = new String(encode);
+                                aImage.putString("base64", encodeString);
+                            }
                         }
 
                         if (media.isCut()) {
@@ -234,6 +240,8 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                         } else {
                             aImage.putString("original_uri", "file://" + media.getPath());
                         }
+                        // TODO: 获取图片size
+                        aImage.putInt("size", 0);
 
                         imageList.pushMap(aImage);
                     }

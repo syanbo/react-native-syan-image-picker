@@ -30,25 +30,26 @@ RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options
                          callback:(RCTResponseSenderBlock)callback) {
+		self.cameraOptions = options;
     self.callback = callback;
     self.resolveBlock = nil;
     self.rejectBlock = nil;
-    [self openImagePickerWithOptions:options];
+    [self openImagePicker];
 }
 
 RCT_REMAP_METHOD(asyncShowImagePicker,
                  options:(NSDictionary *)options
                  resolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject) {
+		self.cameraOptions = options;
     self.resolveBlock = resolve;
     self.rejectBlock = reject;
     self.callback = nil;
-    [self openImagePickerWithOptions:options];
+    [self openImagePicker];
 }
 
 RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback) {
     self.cameraOptions = options;
-    
     self.callback = callback;
     self.resolveBlock = nil;
     self.rejectBlock = nil;
@@ -60,17 +61,17 @@ RCT_EXPORT_METHOD(deleteCache) {
     [fileManager removeItemAtPath: [NSString stringWithFormat:@"%@ImageCaches", NSTemporaryDirectory()] error:nil];
 }
 
-- (void)openImagePickerWithOptions:(NSDictionary *)options {
+- (void)openImagePicker {
     // 照片最大可选张数
-    NSInteger imageCount = [options sy_integerForKey:@"imageCount"];
+    NSInteger imageCount = [self.cameraOptions sy_integerForKey:@"imageCount"];
     // 显示内部拍照按钮
-    BOOL isCamera        = [options sy_boolForKey:@"isCamera"];
-    BOOL isCrop          = [options sy_boolForKey:@"isCrop"];
-    BOOL isGif           = [options sy_boolForKey:@"isGif"];
-    BOOL showCropCircle  = [options sy_boolForKey:@"showCropCircle"];
-    NSInteger CropW      = [options sy_integerForKey:@"CropW"];
-    NSInteger CropH      = [options sy_integerForKey:@"CropH"];
-    NSInteger circleCropRadius = [options sy_integerForKey:@"circleCropRadius"];
+    BOOL isCamera        = [self.cameraOptions sy_boolForKey:@"isCamera"];
+    BOOL isCrop          = [self.cameraOptions sy_boolForKey:@"isCrop"];
+    BOOL isGif           = [self.cameraOptions sy_boolForKey:@"isGif"];
+    BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
+    NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
+    NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
+    NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
     NSInteger   quality  = [self.cameraOptions sy_integerForKey:@"quality"];
 
     TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:nil];
@@ -256,21 +257,25 @@ RCT_EXPORT_METHOD(deleteCache) {
 
 - (NSDictionary *)handleImageData:(UIImage *) image quality:(NSInteger)quality {
     NSMutableDictionary *photo = [NSMutableDictionary dictionary];
+		NSData *imageData = UIImageJPEGRepresentation(image, quality * 1.0 / 100);
+	
     // 剪切图片并放在tmp中
     photo[@"width"] = @(image.size.width);
     photo[@"height"] = @(image.size.height);
+		photo[@"size"] = @(imageData.length);
     
     NSString *fileName = [NSString stringWithFormat:@"%@.jpg", [[NSUUID UUID] UUIDString]];
     [self createDir];
     NSString *filePath = [NSString stringWithFormat:@"%@ImageCaches/%@", NSTemporaryDirectory(), fileName];
-    if ([UIImageJPEGRepresentation(image, quality/100) writeToFile:filePath atomically:YES]) {
+    if ([imageData writeToFile:filePath atomically:YES]) {
         photo[@"uri"] = filePath;
     } else {
         NSLog(@"保存压缩图片失败%@", filePath);
     }
-    NSData *data = UIImageJPEGRepresentation(image, quality/100);
-    NSString *dataString = [data base64EncodedStringWithOptions:0]; // base64 encoded image string
-    photo[@"base64"] = dataString;
+	
+		if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
+				photo[@"base64"] = [imageData base64EncodedStringWithOptions:0];
+		}
     return photo;
 }
 
@@ -307,7 +312,6 @@ RCT_EXPORT_METHOD(deleteCache) {
 }
 
 - (UIViewController *)topViewController {
-//  UIViewController *rootViewController = [[[UIApplication sharedApplication] keyWindow] rootViewController];
     UIViewController *rootViewController = RCTPresentedViewController();
     return rootViewController;
 }
