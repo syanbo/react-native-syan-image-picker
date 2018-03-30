@@ -259,7 +259,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
         byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
         String encodeString = new String(encode);
-        return encodeString;
+        return "data:image/jpeg;base64," + encodeString;
     }
 
     /**
