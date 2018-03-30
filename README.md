@@ -11,8 +11,8 @@
 基于已有原生第三方框架封装的多图片选择组件，适用于 React Native App。
 
 ### 原生框架依赖
-> * Android： [PictureSelector 2.2.0](https://github.com/LuckSiege/PictureSelector) - by [LuckSiege](https://github.com/LuckSiege)
-> * iOS：[TZImagePickerController 2.0.0.4](https://github.com/banchichen/TZImagePickerController) - by [banchichen](https://github.com/banchichen)
+* Android： [PictureSelector 2.2.0](https://github.com/LuckSiege/PictureSelector) - by [LuckSiege](https://github.com/LuckSiege)
+* iOS：[TZImagePickerController 2.0.0.4](https://github.com/banchichen/TZImagePickerController) - by [banchichen](https://github.com/banchichen)
 
 ### 功能特点
 * 支持 iOS、Android 两端
@@ -135,118 +135,93 @@ android {
 
 ## 运行示例
 
-相关 Demo 见 [ImagePickerExample](https://github.com/syanbo/ImagePickerExample)。以下为入口文件，可参考使用方式的注释：
+相关 Demo 见 [ImagePickerExample](https://github.com/syanbo/ImagePickerExample)。
 
+## 配置参数说明
+组件调用时，支持传入一个 `options` 对象，可设置的属性如下：
+
+属性名              | 类型   | 是否可选 | 默认值      | 描述
+----------------  | ------ | -------- | -----------  | -----------
+imageCount         | int | 是      | 6  | 最大选择图片数目
+isCamera         | bool | 是      | true  | 是否允许用户在内部拍照
+isCrop         | bool | 是      | false  | 是否允许裁剪，imageCount 为1才生效
+CropW         | int | 是      | screenW * 0.6  | 裁剪宽度，默认屏幕宽度60%
+CropH         | int | 是      | screenW * 0.6   | 裁剪高度，默认屏幕宽度60%
+isGif         | bool | 是      | false  | 是否允许选择GIF，暂无回调GIF数据
+showCropCircle         | bool | 是      | false  | 是否显示圆形裁剪区域
+circleCropRadius         | float | 是      | screenW * 0.5  | 圆形裁剪半径，默认屏幕宽度一半
+showCropFrame         | bool | 是      | true  | 是否显示裁剪区域
+showCropGrid         | bool | 是      | false  | 是否隐藏裁剪区域网格
+quality         | int | 是      | 90  | 压缩质量
+enableBase64        | bool | 是      | false  | 是否返回base64编码，默认不返回
+
+## 返回结果说明
+以 `Callback` 形式调用时，返回的第一个参数为错误对象，第二个才是图片数组：
+属性名              | 类型   | 描述
+----------------  | ------ | -----------
+error         | object | 取消拍照时不为 null，此时 `error.message` == '取消'
+photos        | array | 选择的图片数组
+
+而以 `Promise` 形式调用时，则直接返回图片数组，在 `catch` 中去处理取消选择的情况。
+
+下面是每张图片对象所包含的属性：
+属性名              | 类型   | 描述
+----------------  | ------ | -----------
+width         | int | 图片宽度
+height        | int | 图片高度
+uri           | string | 图片路径
+original_uri  | string | 图片原始路径，仅 Android
+type          | string | 文件类型，仅 Android，当前只返回 `image`
+size          | int | 图片大小，单位为字节 `b`
+base64        | string | 图片的 base64 编码，如果 `enableBase64` 设置 false，则不返回该属性
+
+## 方法调用
+### Callback
+回调形式需调用 `showImagePicker` 方法：
 ```javascript
-// react-native-syan-image-picker/index.js
-import {
-    NativeModules,
-    Dimensions,
-} from 'react-native';
+import SyanImagePicker from 'react-native-syan-image-picker';
 
-const { RNSyanImagePicker } = NativeModules;
-const { width } = Dimensions.get('window');
-/**
- * 默认参数
- */
-const defaultOptions = {
-    imageCount: 6,             // 最大选择图片数目，默认6
-    isCamera: true,            // 是否允许用户在内部拍照，默认true
-    isCrop: false,             // 是否允许裁剪，默认false, imageCount 为1才生效
-    CropW: ~~(width * 0.6),    // 裁剪宽度，默认屏幕宽度60%
-    CropH: ~~(width * 0.6),    // 裁剪高度，默认屏幕宽度60%
-    isGif: false,              // 是否允许选择GIF，默认false，暂无回调GIF数据
-    showCropCircle: false,     // 是否显示圆形裁剪区域，默认false
-    circleCropRadius: width/2, // 圆形裁剪半径，默认屏幕宽度一半
-    showCropFrame: true,       // 是否显示裁剪区域，默认true
-    showCropGrid: false,       // 是否隐藏裁剪区域网格，默认false
-    quality: 90,               // 压缩质量
-    enableBase64: false,       // 是否返回base64编码，默认不返回
-};
-
-export default {
-    /**
-     * 以Callback形式调用
-     * 1、相册参数暂时只支持默认参数中罗列的属性；
-     * 2、回调形式：showImagePicker(options, (err, selectedPhotos) => {})
-     *  1）选择图片成功，err为null，selectedPhotos为选中的图片数组
-     *  2）取消时，err返回"取消"，selectedPhotos将为undefined
-     *  按需判断各参数值，确保调用正常，示例使用方式：
-     *      showImagePicker(options, (err, selectedPhotos) => {
-     *          if (err) {
-     *              // 取消选择
-     *              return;
-     *          }
-     *          // 选择成功
-     *      })
-     *
-     * @param {Object} options 相册参数
-     * @param {Function} callback 成功，或失败回调
-    */
-    showImagePicker(options, callback) {
-        const optionObj = {
-            ...defaultOptions,
-            ...options
-        };
-        RNSyanImagePicker.showImagePicker(optionObj, callback)
-    },
-
-    /**
-     * 以Promise形式调用
-     * 1、相册参数暂时只支持默认参数中罗列的属性；
-     * 2、使用方式
-     *  1）async/await
-     *  handleSelectPhoto = async () => {
-     *      try {
-     *          const photos = await SYImagePicker.asyncShowImagePicker(options);
-     *          // 选择成功
-     *      } catch (err) {
-     *          // 取消选择，err.message为"取消"
-     *      }
-     *  }
-     *  2）promise.then形式
-     *  handleSelectPhoto = () => {
-     *      SYImagePicker.asyncShowImagePicker(options)
-     *      .then(photos => {
-     *          // 选择成功
-     *      })
-     *      .catch(err => {
-     *          // 取消选择，err.message为"取消"
-     *      })
-     *  }
-     * @param {Object} options 相册参数
-     * @return {Promise} 返回一个Promise对象
-    */
-    asyncShowImagePicker(options) {
-        const optionObj = {
-          ...defaultOptions,
-          ...options,
-        };
-        return RNSyanImagePicker.asyncShowImagePicker(optionObj);
-    },
-
-    /**
-     * 打开相机支持裁剪参数
-     * @param options
-     * @param callback
-     */
-    openCamera(options, callback) {
-        const optionObj = {
-                ...defaultOptions,
-            ...options
-        };
-        RNSyanImagePicker.openCamera(optionObj, callback)
-    },
-
-    /**
-     * 清除缓存
-     */
-    deleteCache() {
-        RNSyanImagePicker.deleteCache()
-    }
-};
-
+SyanImagePicker.showImagePicker(options, (err, selectedPhotos) => {
+  if (err) {
+    // 取消选择
+    return;
+  }
+  // 选择成功，渲染图片
+  // ...
+})
 ```
+### Promise
+非回调形式则使用 `asyncShowImagePicker` 方法：
+```javascript
+import SyanImagePicker from 'react-native-syan-image-picker';
+
+// promise-then
+SYImagePicker.asyncShowImagePicker(options)
+  .then(photos => {
+    // 选择成功
+  })
+  .catch(err => {
+    // 取消选择，err.message为"取消"
+  })
+
+// async/await
+handleSelectPhoto = async () => {
+  try {
+    const photos = await SYImagePicker.asyncShowImagePicker(options);
+    // 选择成功
+  } catch (err) {
+    // 取消选择，err.message为"取消"
+  }
+}
+```
+### 调用相机
+相机功能调用 `openCamera` 方法，一样支持 Callback 和 Promise 两种形式，结果参数也保持一致。
+
+### 删除缓存
+```javascript
+SYImagePicker.deleteCache();
+```
+
 ## 帮助
 加入 React-Native QQ群 397885169
 ## 非常感谢
@@ -257,5 +232,5 @@ export default {
 
 [ljunb](https://github.com/ljunb)
 
-## 捐助
+## 捐赠
 随时欢迎！！☕️☕️☕️✨✨

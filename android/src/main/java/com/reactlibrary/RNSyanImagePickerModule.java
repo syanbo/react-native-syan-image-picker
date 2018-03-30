@@ -187,6 +187,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 case PictureConfig.CHOOSE_REQUEST:
                     selectList = PictureSelector.obtainMultipleResult(data);
                     WritableArray imageList = new WritableNativeArray();
+                    boolean enableBase64 = cameraOptions.getBoolean("enableBase64");
 
                     for (LocalMedia media : selectList) {
                         WritableMap aImage = new WritableNativeMap();
@@ -203,14 +204,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
                             //decode to bitmap
                             Bitmap bitmap = BitmapFactory.decodeFile(media.getPath());
-                            //convert to byte array
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
-                            byte[] bytes = baos.toByteArray();
+                            aImage.putInt("size", bitmap.getByteCount());
+
                             //base64 encode
-                            if (cameraOptions.getBoolean("enableBase64")) {
-                                byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
-                                String encodeString = new String(encode);
+                            if (enableBase64) {
+                                String encodeString = getBase64EncodeString(bitmap);
                                 aImage.putString("base64", encodeString);
                             }
                         } else {
@@ -223,14 +221,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
                             //decode to bitmap
                             Bitmap bitmap = BitmapFactory.decodeFile(media.getCompressPath());
-                            //convert to byte array
-                            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
-                            byte[] bytes = baos.toByteArray();
+                            aImage.putInt("size", bitmap.getByteCount());
+
                             //base64 encode
-                            if (cameraOptions.getBoolean("enableBase64")) {
-                                byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
-                                String encodeString = new String(encode);
+                            if (enableBase64) {
+                                String encodeString = getBase64EncodeString(bitmap);
                                 aImage.putString("base64", encodeString);
                             }
                         }
@@ -240,8 +235,6 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                         } else {
                             aImage.putString("original_uri", "file://" + media.getPath());
                         }
-                        // TODO: 获取图片size
-                        aImage.putInt("size", 0);
 
                         imageList.pushMap(aImage);
                     }
@@ -253,6 +246,21 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             }
         }
     };
+
+    /**
+     * 获取图片base64编码字符串
+     * @param bitmap Bitmap对象
+     * @return base64字符串
+     */
+    private String getBase64EncodeString(Bitmap bitmap) {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
+        byte[] bytes = baos.toByteArray();
+
+        byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
+        String encodeString = new String(encode);
+        return encodeString;
+    }
 
     /**
      * 选择照片成功时触发
