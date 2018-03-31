@@ -23,7 +23,7 @@
 
 ### 运行截图
 
-![](http://oy5rz3rfs.bkt.clouddn.com/2018-03-31-syan.gif)
+![](http://oy5rz3rfs.bkt.clouddn.com/github/syan31127.gif)
 
 
 ## 安装使用
