@@ -54,16 +54,11 @@ react-native link react-native-syan-image-picker
 
 ##### 2、添加相册相关权限：
 
-- 项目目录->Info.plist->增加3项
+- 项目目录->Info.plist->增加
     ```
-    "Privacy - Camera Usage Description
-    "Privacy - Location When In Use Usage Description"
-    "Privacy - Photo Library Usage Description"
-    ```
-- 记得添加描述
-    ```
-    Privacy - Camera Usage Description 是否允许此App使用你的相机？
-    Privacy - Photo Library Usage Description 是否允许此App访问你的媒体资料库？
+    Privacy - Camera Usage Description 是否允许此App使用你的相机进行拍照？
+    Privacy - Photo Library Usage Description 请允许访问相册以选取照片
+    Privacy - Photo Library Additions Usage Description 请允许访问相册以选取照片
     Privacy - Location When In Use Usage Description 我们需要通过您的地理位置信息获取您周边的相关数据
     ```
 
@@ -72,8 +67,24 @@ react-native link react-native-syan-image-picker
 
 #### Android
 
-##### 1、在 `build.gradle` 中添加 `maven` 配置：
+##### 1、在 `build.gradle` 中添加 `maven { url "https://jitpack.io" }` 和`Google` 配置：
 ```gradle
+buildscript {
+    repositories {
+        jcenter()
+        maven {
+            url 'https://maven.google.com/'
+            name 'Google'
+        }
+        google()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.2.3'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
 allprojects {
     repositories {
         mavenLocal()
@@ -93,7 +104,7 @@ allprojects {
 <uses-permission android:name="android.permission.CAMERA" />
 ```
   
-##### 3、更新到 PictureSelector 2.2.0：
+##### 3、更新到 PictureSelector 2.2.0 需要修改：
  ```gradle
 // app/build.gradle
 
