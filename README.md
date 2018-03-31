@@ -55,6 +55,7 @@ react-native link react-native-syan-image-picker
 ##### 2、添加相册相关权限：
 
 - 项目目录->Info.plist->增加
+
     ```
     Privacy - Camera Usage Description 是否允许此App使用你的相机进行拍照？
     Privacy - Photo Library Usage Description 请允许访问相册以选取照片
