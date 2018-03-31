@@ -21,9 +21,9 @@
 * 可设置压缩质量
 * 支持返回图片 base64 编码
 
-### 运行截图
+### Live
 
-![](http://oy5rz3rfs.bkt.clouddn.com/github/syan31127.gif)
+![](http://oy5rz3rfs.bkt.clouddn.com/github/syan-01.gif)
 
 
 ## 安装使用
