@@ -298,7 +298,7 @@ RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
     }
 
 		if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
-				photo[@"base64"] = [imageData base64EncodedStringWithOptions:0];
+				photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
 		}
     return photo;
 }

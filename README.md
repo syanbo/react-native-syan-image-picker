@@ -16,18 +16,17 @@
 
 ### 功能特点
 * 支持 iOS、Android 两端
-* 支持单选、多选，类型包括图片、GIF
+* 支持单选、多选
 * 可自定义裁剪区域大小，支持圆形裁剪
 * 可设置压缩质量
 * 可设置是否返回图片 base64 编码
 * 支持记录当前已选中的图片
 * 支持删除指定下标的图片
 
-## 运行截图
+### Live
 
-![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_001.png?imageView/2/w/268)
-![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_002.png?imageView/2/w/268)
-![](http://oy5rz3rfs.bkt.clouddn.com/github/syan_003.png?imageView/2/w/268)
+![](http://oy5rz3rfs.bkt.clouddn.com/github/syan-01.gif)
+
 
 ## 安装使用
 
@@ -56,26 +55,38 @@ react-native link react-native-syan-image-picker
 
 ##### 2、添加相册相关权限：
 
-- 项目目录->Info.plist->增加3项
-    ```
-    "Privacy - Camera Usage Description
-    "Privacy - Location When In Use Usage Description"
-    "Privacy - Photo Library Usage Description"
-    ```
-- 记得添加描述
-    ```
-    Privacy - Camera Usage Description 是否允许此App使用你的相机？
-    Privacy - Photo Library Usage Description 是否允许此App访问你的媒体资料库？
-    Privacy - Location When In Use Usage Description 我们需要通过您的地理位置信息获取您周边的相关数据
-    ```
+- 项目目录->Info.plist->增加
+
+```
+ Privacy - Camera Usage Description 是否允许此App使用你的相机进行拍照？
+ Privacy - Photo Library Usage Description 请允许访问相册以选取照片
+ Privacy - Photo Library Additions Usage Description 请允许访问相册以选取照片
+ Privacy - Location When In Use Usage Description 我们需要通过您的地理位置信息获取您周边的相关数据
+```
 
 ##### 3、中文适配：    
 - 添加中文 PROJECT -> Info -> Localizations 点击"+"按钮，选择Chinese(Simplified)
 
 #### Android
 
-##### 1、在 `build.gradle` 中添加 `maven` 配置：
+##### 1、在 `build.gradle` 中添加 `maven { url "https://jitpack.io" }` 和`Google` 配置：
 ```gradle
+buildscript {
+    repositories {
+        jcenter()
+        maven {
+            url 'https://maven.google.com/'
+            name 'Google'
+        }
+        google()
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:2.2.3'
+
+        // NOTE: Do not place your application dependencies here; they belong
+        // in the individual module build.gradle files
+    }
+}
 allprojects {
     repositories {
         mavenLocal()
@@ -88,15 +99,16 @@ allprojects {
     }
 }
 ```
- ##### 2、在 `AndroidManifest.xml` 中添加权限：
- ```xml
+
+##### 2、在 `AndroidManifest.xml` 中添加权限：
+```xml
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 <uses-permission android:name="android.permission.CAMERA" />
 ```
-  
-##### 3、更新到 PictureSelector 2.2.0：
- ```gradle
+
+##### 3、更新到 PictureSelector 2.2.0 需要修改：
+```gradle
 // app/build.gradle
 
 android {
@@ -104,7 +116,7 @@ android {
     buildToolsVersion "26.0.3"
     ...
 }
- ```
+```
  
 ### 注意安装运行报错
 1. 检查自动 link 是否成功 
@@ -159,6 +171,7 @@ enableBase64        | bool | 是      | false  | 是否返回base64编码，默�
 
 ## 返回结果说明
 以 `Callback` 形式调用时，返回的第一个参数为错误对象，第二个才是图片数组：
+
 属性名              | 类型   | 描述
 ----------------  | ------ | -----------
 error         | object | 取消拍照时不为 null，此时 `error.message` == '取消'
@@ -167,6 +180,7 @@ photos        | array | 选择的图片数组
 而以 `Promise` 形式调用时，则直接返回图片数组，在 `catch` 中去处理取消选择的情况。
 
 下面是每张图片对象所包含的属性：
+
 属性名              | 类型   | 描述
 ----------------  | ------ | -----------
 width         | int | 图片宽度
@@ -180,6 +194,7 @@ base64        | string | 图片的 base64 编码，如果 `enableBase64` 设置 
 ## 方法调用
 ### Callback
 回调形式需调用 `showImagePicker` 方法：
+
 ```javascript
 import SyanImagePicker from 'react-native-syan-image-picker';
 
@@ -194,6 +209,7 @@ SyanImagePicker.showImagePicker(options, (err, selectedPhotos) => {
 ```
 ### Promise
 非回调形式则使用 `asyncShowImagePicker` 方法：
+
 ```javascript
 import SyanImagePicker from 'react-native-syan-image-picker';
 
@@ -249,3 +265,7 @@ SYImagePicker.deleteCache();
 
 ## 捐赠
 随时欢迎！！☕️☕️☕️✨✨
+
+
+
+
