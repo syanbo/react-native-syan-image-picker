@@ -103,5 +103,13 @@ export default {
      */
     deleteCache() {
         RNSyanImagePicker.deleteCache()
+    },
+
+    /**
+     * 移除选中的图片
+     * @param {Number} index 要移除的图片下标
+     */
+    removePhotoAtIndex(index) {
+        RNSyanImagePicker.removePhotoAtIndex(index)
     }
 };

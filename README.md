@@ -19,7 +19,9 @@
 * 支持单选、多选，类型包括图片、GIF
 * 可自定义裁剪区域大小，支持圆形裁剪
 * 可设置压缩质量
-* 支持返回图片 base64 编码
+* 可设置是否返回图片 base64 编码
+* 支持记录当前已选中的图片
+* 支持删除指定下标的图片
 
 ## 运行截图
 
@@ -214,6 +216,19 @@ handleSelectPhoto = async () => {
   }
 }
 ```
+### 移除选中图片
+在 React Native 页面移除选中的图片后，需调用 `removePhotoAtIndex` 方法，来删除原生中保存的图片数组，确保下次进入图片选择时，已选中的图片保持一致：
+```javascript
+handleDeletePhoto = index => {
+  const { selectedPhotos: oldPhotos } = this.state;
+  const selectedPhotos = oldPhotos.filter((photo, photoIndex) => photoIndex !== index);
+  // 更新原生图片数组
+  SYImagePicker.removePhotoAtIndex(index);
+  // 更新 RN 页面
+  this.setState({ selectedPhotos });
+}
+```
+
 ### 调用相机
 相机功能调用 `openCamera` 方法，一样支持 Callback 和 Promise 两种形式，结果参数也保持一致。
 

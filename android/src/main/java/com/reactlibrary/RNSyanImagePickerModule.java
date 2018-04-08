@@ -89,6 +89,17 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     }
 
     /**
+     * 移除选中的图片
+     * @param {int} index 要移除的图片下标
+     */
+    @ReactMethod
+    public void removePhotoAtIndex(int index) {
+        if (selectList != null && selectList.size() > index) {
+            selectList.remove(index);
+        }
+    }
+
+    /**
      * 打开相册选择
      */
     private void openImagePicker() {
@@ -139,6 +150,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .synOrAsy(true)//同步true或异步false 压缩 默认同步
                 .rotateEnabled(true) // 裁剪是否可旋转图片 true or false
                 .scaleEnabled(true)// 裁剪是否可放大缩小图片 true or false
+                .selectionMedia(selectList) // 当前已选中的图片 List
                 //.videoQuality(0)// 视频录制质量 0 or 1 int
                 //.videoMaxSecond(15)// 显示多少秒以内的视频or音频也可适用 int
                 //.videoMinSecond(10)// 显示多少秒以内的视频or音频也可适用 int
@@ -185,11 +197,15 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
             switch (requestCode) {
                 case PictureConfig.CHOOSE_REQUEST:
-                    selectList = PictureSelector.obtainMultipleResult(data);
+                    List<LocalMedia> tmpSelectList = PictureSelector.obtainMultipleResult(data);
+                    if (!tmpSelectList.isEmpty()) {
+                        selectList = tmpSelectList;
+                    }
+
                     WritableArray imageList = new WritableNativeArray();
                     boolean enableBase64 = cameraOptions.getBoolean("enableBase64");
 
-                    for (LocalMedia media : selectList) {
+                    for (LocalMedia media : tmpSelectList) {
                         WritableMap aImage = new WritableNativeMap();
 
                         BitmapFactory.Options options = new BitmapFactory.Options();
@@ -238,7 +254,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
                         imageList.pushMap(aImage);
                     }
-                    if (selectList.isEmpty()) {
+                    if (tmpSelectList.isEmpty()) {
                         invokeError();
                     } else {
                         invokeSuccessWithResult(imageList);
@@ -259,7 +275,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
         byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
         String encodeString = new String(encode);
-        return encodeString;
+        return "data:image/jpeg;base64," + encodeString;
     }
 
     /**

@@ -22,9 +22,25 @@
  保存回调的callback
  */
 @property (nonatomic, copy) RCTResponseSenderBlock callback;
+/**
+ 保存选中的图片数组
+ */
+@property (nonatomic, strong) NSMutableArray *selectedAssets;
 @end
 
 @implementation RNSyanImagePicker
+
+- (instancetype)init {
+		self = [super init];
+		if (self) {
+			_selectedAssets = [NSMutableArray array];
+		}
+		return self;
+}
+
+- (void)dealloc {
+		_selectedAssets = nil;
+}
 
 RCT_EXPORT_MODULE()
 
@@ -61,6 +77,12 @@ RCT_EXPORT_METHOD(deleteCache) {
     [fileManager removeItemAtPath: [NSString stringWithFormat:@"%@ImageCaches", NSTemporaryDirectory()] error:nil];
 }
 
+RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
+		if (self.selectedAssets && self.selectedAssets.count > index) {
+				[self.selectedAssets removeObjectAtIndex:index];
+		}
+}
+
 - (void)openImagePicker {
     // 照片最大可选张数
     NSInteger imageCount = [self.cameraOptions sy_integerForKey:@"imageCount"];
@@ -82,6 +104,7 @@ RCT_EXPORT_METHOD(deleteCache) {
     imagePickerVc.allowPickingVideo = NO; // 不允许视频
     imagePickerVc.allowPickingOriginalPhoto = NO; // 允许原图
     imagePickerVc.allowCrop = isCrop;   // 裁剪
+		imagePickerVc.selectedAssets = self.selectedAssets; // 当前已选中的图片
 
     if (imageCount == 1) {
         // 单选模式
@@ -99,9 +122,10 @@ RCT_EXPORT_METHOD(deleteCache) {
             }
         }
     }
-    
+
     __block TZImagePickerController *weakPicker = imagePickerVc;
     [imagePickerVc setDidFinishPickingPhotosWithInfosHandle:^(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos) {
+					self.selectedAssets = [NSMutableArray arrayWithArray:assets];
           NSMutableArray *selectedPhotos = [NSMutableArray array];
           [weakPicker showProgressHUD];
           if (imageCount == 1 && isCrop) {
@@ -114,11 +138,11 @@ RCT_EXPORT_METHOD(deleteCache) {
         [self invokeSuccessWithResult:selectedPhotos];
         [weakPicker hideProgressHUD];
     }];
-  
+
     [imagePickerVc setImagePickerControllerDidCancelHandle:^{
         [self invokeError];
     }];
-  
+
     [[self topViewController] presentViewController:imagePickerVc animated:YES completion:nil];
 }
 
@@ -191,12 +215,12 @@ RCT_EXPORT_METHOD(deleteCache) {
     [picker dismissViewControllerAnimated:YES completion:nil];
     NSString *type = [info objectForKey:UIImagePickerControllerMediaType];
     if ([type isEqualToString:@"public.image"]) {
-        
+
         TZImagePickerController *tzImagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:1 delegate:nil];
         tzImagePickerVc.sortAscendingByModificationDate = NO;
         [tzImagePickerVc showProgressHUD];
         UIImage *image = [info objectForKey:UIImagePickerControllerOriginalImage];
-        
+
         // save photo and get asset / 保存图片，获取到asset
         [[TZImageManager manager] savePhotoWithImage:image location:NULL completion:^(NSError *error){
             if (error) {
@@ -206,7 +230,7 @@ RCT_EXPORT_METHOD(deleteCache) {
                 [[TZImageManager manager] getCameraRollAlbum:NO allowPickingImage:YES needFetchAssets:YES completion:^(TZAlbumModel *model) {
                     [[TZImageManager manager] getAssetsFromFetchResult:model.result allowPickingVideo:NO allowPickingImage:YES completion:^(NSArray<TZAssetModel *> *models) {
                         [tzImagePickerVc hideProgressHUD];
-                        
+
                         TZAssetModel *assetModel = [models firstObject];
                         BOOL isCrop          = [self.cameraOptions sy_boolForKey:@"isCrop"];
                         BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
@@ -214,7 +238,7 @@ RCT_EXPORT_METHOD(deleteCache) {
                         NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
                         NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
                         NSInteger   quality = [self.cameraOptions sy_integerForKey:@"quality"];
-                        
+
                         if (isCrop) {
                             TZImagePickerController *imagePicker = [[TZImagePickerController alloc] initCropTypeWithAsset:assetModel.asset photo:image completion:^(UIImage *cropImage, id asset) {
                                 [self invokeSuccessWithResult:@[[self handleImageData:cropImage quality:quality]]];
@@ -258,12 +282,12 @@ RCT_EXPORT_METHOD(deleteCache) {
 - (NSDictionary *)handleImageData:(UIImage *) image quality:(NSInteger)quality {
     NSMutableDictionary *photo = [NSMutableDictionary dictionary];
 		NSData *imageData = UIImageJPEGRepresentation(image, quality * 1.0 / 100);
-	
+
     // 剪切图片并放在tmp中
     photo[@"width"] = @(image.size.width);
     photo[@"height"] = @(image.size.height);
 		photo[@"size"] = @(imageData.length);
-    
+
     NSString *fileName = [NSString stringWithFormat:@"%@.jpg", [[NSUUID UUID] UUIDString]];
     [self createDir];
     NSString *filePath = [NSString stringWithFormat:@"%@ImageCaches/%@", NSTemporaryDirectory(), fileName];
@@ -272,7 +296,7 @@ RCT_EXPORT_METHOD(deleteCache) {
     } else {
         NSLog(@"保存压缩图片失败%@", filePath);
     }
-	
+
 		if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
 				photo[@"base64"] = [imageData base64EncodedStringWithOptions:0];
 		}
