@@ -100,6 +100,17 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     }
 
     /**
+     * 移除所有选中的图片
+     */
+    @ReactMethod
+    public void removeAllPhoto() {
+        if (selectList != null) {
+            //selectList.clear();
+            selectList = null;
+        }
+    }
+
+    /**
      * 打开相册选择
      */
     private void openImagePicker() {
@@ -124,7 +135,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         PictureSelector.create(currentActivity)
                 .openGallery(PictureMimeType.ofImage())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
                 .maxSelectNum(imageCount)// 最大图片选择数量 int
-                .minSelectNum(1)// 最小选择数量 int
+                .minSelectNum(0)// 最小选择数量 int
                 .imageSpanCount(4)// 每行显示个数 int
                 .selectionMode(modeValue)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
                 .previewImage(true)// 是否可预览图片 true or false
@@ -198,7 +209,8 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             switch (requestCode) {
                 case PictureConfig.CHOOSE_REQUEST:
                     List<LocalMedia> tmpSelectList = PictureSelector.obtainMultipleResult(data);
-                    if (!tmpSelectList.isEmpty()) {
+                    boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
+                    if (!tmpSelectList.isEmpty() && isRecordSelected) {
                         selectList = tmpSelectList;
                     }
 

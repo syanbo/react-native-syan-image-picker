@@ -1,8 +1,8 @@
 
 {
   "name": "react-native-syan-image-picker",
-  "version": "0.1.4",
-  "description": "",
+  "version": "0.1.5",
+  "description": "React-Native 多图片选择 支持裁剪 压缩",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",

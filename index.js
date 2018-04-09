@@ -11,6 +11,7 @@ const { width } = Dimensions.get('window');
  */
 const defaultOptions = {
     imageCount: 6,             // 最大选择图片数目，默认6
+    isRecordSelected: false,   // 是否已选图片
     isCamera: true,            // 是否允许用户在内部拍照，默认true
     isCrop: false,             // 是否允许裁剪，默认false, imageCount 为1才生效
     CropW: ~~(width * 0.6),    // 裁剪宽度，默认屏幕宽度60%
@@ -111,5 +112,12 @@ export default {
      */
     removePhotoAtIndex(index) {
         RNSyanImagePicker.removePhotoAtIndex(index)
+    },
+
+    /**
+     * 移除所有选中图片
+     */
+    removeAllPhoto() {
+        RNSyanImagePicker.removeAllPhoto()
     }
 };

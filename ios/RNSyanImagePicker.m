@@ -31,22 +31,22 @@
 @implementation RNSyanImagePicker
 
 - (instancetype)init {
-		self = [super init];
-		if (self) {
-			_selectedAssets = [NSMutableArray array];
-		}
-		return self;
+    self = [super init];
+    if (self) {
+        _selectedAssets = [NSMutableArray array];
+    }
+    return self;
 }
 
 - (void)dealloc {
-		_selectedAssets = nil;
+    _selectedAssets = nil;
 }
 
 RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options
                          callback:(RCTResponseSenderBlock)callback) {
-		self.cameraOptions = options;
+	self.cameraOptions = options;
     self.callback = callback;
     self.resolveBlock = nil;
     self.rejectBlock = nil;
@@ -57,7 +57,7 @@ RCT_REMAP_METHOD(asyncShowImagePicker,
                  options:(NSDictionary *)options
                  resolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject) {
-		self.cameraOptions = options;
+	self.cameraOptions = options;
     self.resolveBlock = resolve;
     self.rejectBlock = reject;
     self.callback = nil;
@@ -78,9 +78,15 @@ RCT_EXPORT_METHOD(deleteCache) {
 }
 
 RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
-		if (self.selectedAssets && self.selectedAssets.count > index) {
-				[self.selectedAssets removeObjectAtIndex:index];
-		}
+    if (self.selectedAssets && self.selectedAssets.count > index) {
+        [self.selectedAssets removeObjectAtIndex:index];
+    }
+}
+
+RCT_EXPORT_METHOD(removeAllPhoto) {
+    if (self.selectedAssets) {
+        [self.selectedAssets removeAllObjects];
+    }
 }
 
 - (void)openImagePicker {
@@ -91,6 +97,7 @@ RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
     BOOL isCrop          = [self.cameraOptions sy_boolForKey:@"isCrop"];
     BOOL isGif           = [self.cameraOptions sy_boolForKey:@"isGif"];
     BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
+    BOOL isRecordSelected = [self.cameraOptions sy_boolForKey:@"isRecordSelected"];
     NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
     NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
     NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
@@ -103,8 +110,12 @@ RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
     imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
     imagePickerVc.allowPickingVideo = NO; // 不允许视频
     imagePickerVc.allowPickingOriginalPhoto = NO; // 允许原图
+    imagePickerVc.alwaysEnableDoneBtn = YES;
     imagePickerVc.allowCrop = isCrop;   // 裁剪
-		imagePickerVc.selectedAssets = self.selectedAssets; // 当前已选中的图片
+
+    if (isRecordSelected) {
+        imagePickerVc.selectedAssets = self.selectedAssets; // 当前已选中的图片
+    }
 
     if (imageCount == 1) {
         // 单选模式
@@ -125,22 +136,26 @@ RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
 
     __block TZImagePickerController *weakPicker = imagePickerVc;
     [imagePickerVc setDidFinishPickingPhotosWithInfosHandle:^(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos) {
-					self.selectedAssets = [NSMutableArray arrayWithArray:assets];
-          NSMutableArray *selectedPhotos = [NSMutableArray array];
-          [weakPicker showProgressHUD];
-          if (imageCount == 1 && isCrop) {
-              [selectedPhotos addObject:[self handleImageData:photos[0] quality:quality]];
-          } else {
-                [infos enumerateObjectsUsingBlock:^(NSDictionary * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-                    [selectedPhotos addObject:[self handleImageData:photos[idx] quality:quality]];
-                }];
-            }
+        if (isRecordSelected) {
+            self.selectedAssets = [NSMutableArray arrayWithArray:assets];
+        }
+        NSMutableArray *selectedPhotos = [NSMutableArray array];
+        [weakPicker showProgressHUD];
+        if (imageCount == 1 && isCrop) {
+            [selectedPhotos addObject:[self handleImageData:photos[0] quality:quality]];
+        } else {
+            [infos enumerateObjectsUsingBlock:^(NSDictionary * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
+                [selectedPhotos addObject:[self handleImageData:photos[idx] quality:quality]];
+            }];
+        }
         [self invokeSuccessWithResult:selectedPhotos];
         [weakPicker hideProgressHUD];
     }];
 
+    __block TZImagePickerController *weakPickerVc = imagePickerVc;
     [imagePickerVc setImagePickerControllerDidCancelHandle:^{
         [self invokeError];
+        [weakPickerVc hideProgressHUD];
     }];
 
     [[self topViewController] presentViewController:imagePickerVc animated:YES completion:nil];
@@ -281,12 +296,12 @@ RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
 
 - (NSDictionary *)handleImageData:(UIImage *) image quality:(NSInteger)quality {
     NSMutableDictionary *photo = [NSMutableDictionary dictionary];
-		NSData *imageData = UIImageJPEGRepresentation(image, quality * 1.0 / 100);
+	NSData *imageData = UIImageJPEGRepresentation(image, quality * 1.0 / 100);
 
     // 剪切图片并放在tmp中
     photo[@"width"] = @(image.size.width);
     photo[@"height"] = @(image.size.height);
-		photo[@"size"] = @(imageData.length);
+	photo[@"size"] = @(imageData.length);
 
     NSString *fileName = [NSString stringWithFormat:@"%@.jpg", [[NSUUID UUID] UUIDString]];
     [self createDir];
@@ -297,9 +312,9 @@ RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
         NSLog(@"保存压缩图片失败%@", filePath);
     }
 
-		if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
-				photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
-		}
+    if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
+        photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
+    }
     return photo;
 }
 

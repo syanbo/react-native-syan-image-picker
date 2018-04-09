@@ -157,6 +157,7 @@ android {
 属性名              | 类型   | 是否可选 | 默认值      | 描述
 ----------------  | ------ | -------- | -----------  | -----------
 imageCount         | int | 是      | 6  | 最大选择图片数目
+isRecordSelected         | bool | 是      | false  | 记录当前已选中的图片
 isCamera         | bool | 是      | true  | 是否允许用户在内部拍照
 isCrop         | bool | 是      | false  | 是否允许裁剪，imageCount 为1才生效
 CropW         | int | 是      | screenW * 0.6  | 裁剪宽度，默认屏幕宽度60%
@@ -243,6 +244,12 @@ handleDeletePhoto = index => {
   // 更新 RN 页面
   this.setState({ selectedPhotos });
 }
+```
+
+### 移除全部选中图片
+
+```javascript
+STImagePicke.removeAllPhoto()
 ```
 
 ### 调用相机
