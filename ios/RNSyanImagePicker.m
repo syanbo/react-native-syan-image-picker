@@ -227,55 +227,56 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
 }
 
 - (void)imagePickerController:(UIImagePickerController*)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
-    [picker dismissViewControllerAnimated:YES completion:nil];
-    NSString *type = [info objectForKey:UIImagePickerControllerMediaType];
-    if ([type isEqualToString:@"public.image"]) {
+    [picker dismissViewControllerAnimated:YES completion:^{
+        NSString *type = [info objectForKey:UIImagePickerControllerMediaType];
+        if ([type isEqualToString:@"public.image"]) {
 
-        TZImagePickerController *tzImagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:1 delegate:nil];
-        tzImagePickerVc.sortAscendingByModificationDate = NO;
-        [tzImagePickerVc showProgressHUD];
-        UIImage *image = [info objectForKey:UIImagePickerControllerOriginalImage];
+            TZImagePickerController *tzImagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:1 delegate:nil];
+            tzImagePickerVc.sortAscendingByModificationDate = NO;
+            [tzImagePickerVc showProgressHUD];
+            UIImage *image = [info objectForKey:UIImagePickerControllerOriginalImage];
 
-        // save photo and get asset / 保存图片，获取到asset
-        [[TZImageManager manager] savePhotoWithImage:image location:NULL completion:^(NSError *error){
-            if (error) {
-                [tzImagePickerVc hideProgressHUD];
-                NSLog(@"图片保存失败 %@",error);
-            } else {
-                [[TZImageManager manager] getCameraRollAlbum:NO allowPickingImage:YES needFetchAssets:YES completion:^(TZAlbumModel *model) {
-                    [[TZImageManager manager] getAssetsFromFetchResult:model.result allowPickingVideo:NO allowPickingImage:YES completion:^(NSArray<TZAssetModel *> *models) {
-                        [tzImagePickerVc hideProgressHUD];
+            // save photo and get asset / 保存图片，获取到asset
+            [[TZImageManager manager] savePhotoWithImage:image location:NULL completion:^(NSError *error){
+                if (error) {
+                    [tzImagePickerVc hideProgressHUD];
+                    NSLog(@"图片保存失败 %@",error);
+                } else {
+                    [[TZImageManager manager] getCameraRollAlbum:NO allowPickingImage:YES needFetchAssets:YES completion:^(TZAlbumModel *model) {
+                        [[TZImageManager manager] getAssetsFromFetchResult:model.result allowPickingVideo:NO allowPickingImage:YES completion:^(NSArray<TZAssetModel *> *models) {
+                            [tzImagePickerVc hideProgressHUD];
 
-                        TZAssetModel *assetModel = [models firstObject];
-                        BOOL isCrop          = [self.cameraOptions sy_boolForKey:@"isCrop"];
-                        BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
-                        NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
-                        NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
-                        NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
-                        NSInteger   quality = [self.cameraOptions sy_integerForKey:@"quality"];
+                            TZAssetModel *assetModel = [models firstObject];
+                            BOOL isCrop          = [self.cameraOptions sy_boolForKey:@"isCrop"];
+                            BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
+                            NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
+                            NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
+                            NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
+                            NSInteger   quality = [self.cameraOptions sy_integerForKey:@"quality"];
 
-                        if (isCrop) {
-                            TZImagePickerController *imagePicker = [[TZImagePickerController alloc] initCropTypeWithAsset:assetModel.asset photo:image completion:^(UIImage *cropImage, id asset) {
-                                [self invokeSuccessWithResult:@[[self handleImageData:cropImage quality:quality]]];
-                            }];
-                            imagePicker.allowCrop = isCrop;   // 裁剪
-                            if(showCropCircle) {
-                                imagePicker.needCircleCrop = showCropCircle; //圆形裁剪
-                                imagePicker.circleCropRadius = circleCropRadius; //圆形半径
+                            if (isCrop) {
+                                TZImagePickerController *imagePicker = [[TZImagePickerController alloc] initCropTypeWithAsset:assetModel.asset photo:image completion:^(UIImage *cropImage, id asset) {
+                                    [self invokeSuccessWithResult:@[[self handleImageData:cropImage quality:quality]]];
+                                }];
+                                imagePicker.allowCrop = isCrop;   // 裁剪
+                                if(showCropCircle) {
+                                    imagePicker.needCircleCrop = showCropCircle; //圆形裁剪
+                                    imagePicker.circleCropRadius = circleCropRadius; //圆形半径
+                                } else {
+                                    CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
+                                    CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
+                                    imagePicker.cropRect = CGRectMake(x,y,CropW,CropH);
+                                }
+                                [[self topViewController] presentViewController:imagePicker animated:YES completion:nil];
                             } else {
-                                CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
-                                CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
-                                imagePicker.cropRect = CGRectMake(x,y,CropW,CropH);
+                                [self invokeSuccessWithResult:@[[self handleImageData:image quality:quality]]];
                             }
-                            [[self topViewController] presentViewController:imagePicker animated:YES completion:nil];
-                        } else {
-                            [self invokeSuccessWithResult:@[[self handleImageData:image quality:quality]]];
-                        }
+                        }];
                     }];
-                }];
-            }
-        }];
-    }
+                }
+            }];
+        }
+    }];
 }
 
 - (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
