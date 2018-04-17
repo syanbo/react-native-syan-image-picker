@@ -341,6 +341,11 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
     }
 }
 
++ (BOOL)requiresMainQueueSetup
+{
+   return YES;
+}
+
 - (BOOL)createDir {
     NSString * path = [NSString stringWithFormat:@"%@ImageCaches", NSTemporaryDirectory()];;
     NSFileManager *fileManager = [NSFileManager defaultManager];
