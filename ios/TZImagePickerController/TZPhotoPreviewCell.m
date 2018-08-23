@@ -92,7 +92,7 @@
 
 
 @interface TZPhotoPreviewView ()<UIScrollViewDelegate>
-
+@property (assign, nonatomic) BOOL isRequestingGIF;
 @end
 
 @implementation TZPhotoPreviewView
@@ -113,6 +113,9 @@
         _scrollView.delaysContentTouches = NO;
         _scrollView.canCancelContentTouches = YES;
         _scrollView.alwaysBounceVertical = NO;
+        if (@available(iOS 11, *)) {
+            _scrollView.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+        }
         [self addSubview:_scrollView];
         
         _imageContainerView = [[UIView alloc] init];
@@ -146,15 +149,35 @@
 
 - (void)setModel:(TZAssetModel *)model {
     _model = model;
+    self.isRequestingGIF = NO;
     [_scrollView setZoomScale:1.0 animated:NO];
     if (model.type == TZAssetModelMediaTypePhotoGif) {
         // 先显示缩略图
         [[TZImageManager manager] getPhotoWithAsset:model.asset completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
             self.imageView.image = photo;
             [self resizeSubviews];
+            if (self.isRequestingGIF) {
+                return;
+            }
             // 再显示gif动图
-            [[TZImageManager manager] getOriginalPhotoDataWithAsset:model.asset completion:^(NSData *data, NSDictionary *info, BOOL isDegraded) {
+            self.isRequestingGIF = YES;
+            [[TZImageManager manager] getOriginalPhotoDataWithAsset:model.asset progressHandler:^(double progress, NSError *error, BOOL *stop, NSDictionary *info) {
+                progress = progress > 0.02 ? progress : 0.02;
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    self.progressView.progress = progress;
+                    if (progress >= 1) {
+                        self.progressView.hidden = YES;
+                    } else {
+                        self.progressView.hidden = NO;
+                    }
+                });
+#ifdef DEBUG
+                NSLog(@"[TZImagePickerController] getOriginalPhotoDataWithAsset:%f error:%@", progress, error);
+#endif
+            } completion:^(NSData *data, NSDictionary *info, BOOL isDegraded) {
                 if (!isDegraded) {
+                    self.isRequestingGIF = NO;
+                    self.progressView.hidden = YES;
                     self.imageView.image = [UIImage sd_tz_animatedGIFWithData:data];
                     [self resizeSubviews];
                 }
@@ -172,10 +195,10 @@
     
     _asset = asset;
     self.imageRequestID = [[TZImageManager manager] getPhotoWithAsset:asset completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
-        if (![asset isEqual:_asset]) return;
+        if (![asset isEqual:self->_asset]) return;
         self.imageView.image = photo;
         [self resizeSubviews];
-        _progressView.hidden = YES;
+        self->_progressView.hidden = YES;
         if (self.imageProgressUpdateBlock) {
             self.imageProgressUpdateBlock(1);
         }
@@ -183,17 +206,17 @@
             self.imageRequestID = 0;
         }
     } progressHandler:^(double progress, NSError *error, BOOL *stop, NSDictionary *info) {
-        if (![asset isEqual:_asset]) return;
-        _progressView.hidden = NO;
-        [self bringSubviewToFront:_progressView];
+        if (![asset isEqual:self->_asset]) return;
+        self->_progressView.hidden = NO;
+        [self bringSubviewToFront:self->_progressView];
         progress = progress > 0.02 ? progress : 0.02;
-        _progressView.progress = progress;
+        self->_progressView.progress = progress;
         if (self.imageProgressUpdateBlock && progress < 1) {
             self.imageProgressUpdateBlock(progress);
         }
         
         if (progress >= 1) {
-            _progressView.hidden = YES;
+            self->_progressView.hidden = YES;
             self.imageRequestID = 0;
         }
     } networkAccessAllowed:YES];
@@ -355,17 +378,17 @@
     }
     
     [[TZImageManager manager] getPhotoWithAsset:self.model.asset completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
-        _cover = photo;
+        self->_cover = photo;
     }];
     [[TZImageManager manager] getVideoWithAsset:self.model.asset completion:^(AVPlayerItem *playerItem, NSDictionary *info) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            _player = [AVPlayer playerWithPlayerItem:playerItem];
-            _playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
-            _playerLayer.backgroundColor = [UIColor blackColor].CGColor;
-            _playerLayer.frame = self.bounds;
-            [self.layer addSublayer:_playerLayer];
+            self->_player = [AVPlayer playerWithPlayerItem:playerItem];
+            self->_playerLayer = [AVPlayerLayer playerLayerWithPlayer:self->_player];
+            self->_playerLayer.backgroundColor = [UIColor blackColor].CGColor;
+            self->_playerLayer.frame = self.bounds;
+            [self.layer addSublayer:self->_playerLayer];
             [self configPlayButton];
-            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pausePlayerAndShowNaviBar) name:AVPlayerItemDidPlayToEndTimeNotification object:_player.currentItem];
+            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pausePlayerAndShowNaviBar) name:AVPlayerItemDidPlayToEndTimeNotification object:self->_player.currentItem];
         });
     }];
 }

@@ -4,7 +4,7 @@
 //
 //  Created by 谭真 on 15/12/24.
 //  Copyright © 2015年 谭真. All rights reserved.
-//  version 2.0.0.9 - 2018.03.12
+//  version 2.2.6 - 2018.08.21
 //  更多信息，请前往项目的github地址：https://github.com/banchichen/TZImagePickerController
 
 /*
@@ -19,12 +19,16 @@
 #import <UIKit/UIKit.h>
 #import "TZAssetModel.h"
 #import "NSBundle+TZImagePicker.h"
+#import "TZImageManager.h"
+#import "TZVideoPlayerController.h"
+#import "TZGifPhotoPreviewController.h"
+#import "TZLocationManager.h"
+#import "TZPhotoPreviewController.h"
 
 #define iOS7Later ([UIDevice currentDevice].systemVersion.floatValue >= 7.0f)
 #define iOS8Later ([UIDevice currentDevice].systemVersion.floatValue >= 8.0f)
-#define iOS9Later ([UIDevice currentDevice].systemVersion.floatValue >= 9.0f)
-#define iOS9_1Later ([UIDevice currentDevice].systemVersion.floatValue >= 9.1f)
 
+@class TZAlbumCell, TZAssetCell;
 @protocol TZImagePickerControllerDelegate;
 @interface TZImagePickerController : UINavigationController
 
@@ -71,7 +75,7 @@
 /// Default is YES, if set NO, user can't picking video.
 /// 默认为YES，如果设置为NO,用户将不能选择视频
 @property (nonatomic, assign) BOOL allowPickingVideo;
-/// Default is NO / 默认为NO，为YES时可以多选视频/gif图片，和照片共享最大可选张数maxImagesCount的限制
+/// Default is NO / 默认为NO，为YES时可以多选视频/gif/图片，和照片共享最大可选张数maxImagesCount的限制
 @property (nonatomic, assign) BOOL allowPickingMultipleVideo;
 
 /// Default is NO, if set YES, user can picking gif image.
@@ -80,11 +84,20 @@
 
 /// Default is YES, if set NO, user can't picking image.
 /// 默认为YES，如果设置为NO,用户将不能选择发送图片
-@property(nonatomic, assign) BOOL allowPickingImage;
+@property (nonatomic, assign) BOOL allowPickingImage;
 
 /// Default is YES, if set NO, user can't take picture.
-/// 默认为YES，如果设置为NO,拍照按钮将隐藏,用户将不能选择照片
-@property(nonatomic, assign) BOOL allowTakePicture;
+/// 默认为YES，如果设置为NO, 用户将不能拍摄照片
+@property (nonatomic, assign) BOOL allowTakePicture;
+@property (nonatomic, assign) BOOL allowCameraLocation;
+
+/// Default is YES, if set NO, user can't take video.
+/// 默认为YES，如果设置为NO, 用户将不能拍摄视频
+@property(nonatomic, assign) BOOL allowTakeVideo;
+/// Default value is 10 minutes / 视频最大拍摄时间，默认是10分钟，单位是秒
+@property (assign, nonatomic) NSTimeInterval videoMaximumDuration;
+/// Customizing UIImagePickerController's other properties, such as videoQuality / 定制UIImagePickerController的其它属性，比如视频拍摄质量videoQuality
+@property (nonatomic, copy) void(^uiImagePickerControllerSettingBlock)(UIImagePickerController *imagePickerController);
 
 /// 首选语言，如果设置了就用该语言，不设则取当前系统语言。
 /// 由于目前只支持中文、繁体中文、英文、越南语。故该属性只支持zh-Hans、zh-Hant、en、vi四种值，其余值无效。
@@ -102,14 +115,34 @@
 /// 默认为YES，如果设置为NO, 选择器将不会自己dismiss
 @property(nonatomic, assign) BOOL autoDismiss;
 
-/// Default is YES, if set NO, in the delegate method the photos and infos will be nil, only assets hava value.
+/// Default is NO, if set YES, in the delegate method the photos and infos will be nil, only assets hava value.
 /// 默认为NO，如果设置为YES，代理方法里photos和infos会是nil，只返回assets
 @property (assign, nonatomic) BOOL onlyReturnAsset;
+
+/// Default is NO, if set YES, will show the image's selected index.
+/// 默认为NO，如果设置为YES，会显示照片的选中序号
+@property (assign, nonatomic) BOOL showSelectedIndex;
+
+/// Default is NO, if set YES, when selected photos's count up to maxImagesCount, other photo will show float layer what's color is cannotSelectLayerColor.
+/// 默认是NO，如果设置为YES，当照片选择张数达到maxImagesCount时，其它照片会显示颜色为cannotSelectLayerColor的浮层
+@property (assign, nonatomic) BOOL showPhotoCannotSelectLayer;
+/// Default is white color with 0.8 alpha;
+@property (strong, nonatomic) UIColor *cannotSelectLayerColor;
+
+/// Default is No, if set YES, the result photo will not be scaled to photoWidth pixel width. The photoWidth default is 828px
+/// 默认是NO，如果设置为YES，内部不会缩放图片到photoWidth像素宽
+@property (assign, nonatomic) BOOL notScaleImage;
+
+/// 默认是NO，如果设置为YES，导出视频时会修正转向（慎重设为YES，可能导致部分安卓下拍的视频导出失败）
+@property (assign, nonatomic) BOOL needFixComposition;
 
 /// The photos user have selected
 /// 用户选中过的图片数组
 @property (nonatomic, strong) NSMutableArray *selectedAssets;
 @property (nonatomic, strong) NSMutableArray<TZAssetModel *> *selectedModels;
+@property (nonatomic, strong) NSMutableArray *selectedAssetIds;
+- (void)addSelectedModel:(TZAssetModel *)model;
+- (void)removeSelectedModel:(TZAssetModel *)model;
 
 /// Minimum selectable photo width, Default is 0
 /// 最小可选中的图片宽度，默认是0，小于这个宽度的图片不可选中
@@ -134,8 +167,22 @@
 @property (nonatomic, assign) BOOL needCircleCrop;       ///< 需要圆形裁剪框
 @property (nonatomic, assign) NSInteger circleCropRadius;  ///< 圆形裁剪框半径大小
 @property (nonatomic, copy) void (^cropViewSettingBlock)(UIView *cropView);     ///< 自定义裁剪框的其他属性
-
 @property (nonatomic, copy) void (^navLeftBarButtonSettingBlock)(UIButton *leftButton);     ///< 自定义返回按钮样式及其属性
+
+/// 【自定义各页面/组件的样式】在界面初始化/组件setModel完成后调用，允许外界修改样式等
+@property (nonatomic, copy) void (^photoPickerPageUIConfigBlock)(UICollectionView *collectionView, UIView *bottomToolBar, UIButton *previewButton, UIButton *originalPhotoButton, UILabel *originalPhotoLabel, UIButton *doneButton, UIImageView *numberImageView, UILabel *numberLabel, UIView *divideLine);
+@property (nonatomic, copy) void (^photoPreviewPageUIConfigBlock)(UICollectionView *collectionView, UIView *naviBar, UIButton *backButton, UIButton *selectButton, UILabel *indexLabel, UIView *toolBar, UIButton *originalPhotoButton, UILabel *originalPhotoLabel, UIButton *doneButton, UIImageView *numberImageView, UILabel *numberLabel);
+@property (nonatomic, copy) void (^videoPreviewPageUIConfigBlock)(UIButton *playButton, UIView *toolBar, UIButton *doneButton);
+@property (nonatomic, copy) void (^gifPreviewPageUIConfigBlock)(UIView *toolBar, UIButton *doneButton);
+@property (nonatomic, copy) void (^assetCellDidSetModelBlock)(TZAssetCell *cell, UIImageView *imageView, UIImageView *selectImageView, UILabel *indexLabel, UIView *bottomView, UILabel *timeLength, UIImageView *videoImgView);
+@property (nonatomic, copy) void (^albumCellDidSetModelBlock)(TZAlbumCell *cell, UIImageView *posterImageView, UILabel *titleLabel);
+/// 【自定义各页面/组件的frame】在界面viewDidLayoutSubviews/组件layoutSubviews后调用，允许外界修改frame等
+@property (nonatomic, copy) void (^photoPickerPageDidLayoutSubviewsBlock)(UICollectionView *collectionView, UIView *bottomToolBar, UIButton *previewButton, UIButton *originalPhotoButton, UILabel *originalPhotoLabel, UIButton *doneButton, UIImageView *numberImageView, UILabel *numberLabel, UIView *divideLine);
+@property (nonatomic, copy) void (^photoPreviewPageDidLayoutSubviewsBlock)(UICollectionView *collectionView, UIView *naviBar, UIButton *backButton, UIButton *selectButton, UILabel *indexLabel, UIView *toolBar, UIButton *originalPhotoButton, UILabel *originalPhotoLabel, UIButton *doneButton, UIImageView *numberImageView, UILabel *numberLabel);
+@property (nonatomic, copy) void (^videoPreviewPageDidLayoutSubviewsBlock)(UIButton *playButton, UIView *toolBar, UIButton *doneButton);
+@property (nonatomic, copy) void (^gifPreviewPageDidLayoutSubviewsBlock)(UIView *toolBar, UIButton *doneButton);
+@property (nonatomic, copy) void (^assetCellDidLayoutSubviewsBlock)(TZAssetCell *cell, UIImageView *imageView, UIImageView *selectImageView, UILabel *indexLabel, UIView *bottomView, UILabel *timeLength, UIImageView *videoImgView);
+@property (nonatomic, copy) void (^albumCellDidLayoutSubviewsBlock)(TZAlbumCell *cell, UIImageView *posterImageView, UILabel *titleLabel);
 
 #pragma mark -
 - (id)showAlertWithTitle:(NSString *)title;
@@ -146,13 +193,20 @@
 @property (assign, nonatomic) BOOL needShowStatusBar;
 
 #pragma mark -
-@property (nonatomic, copy) NSString *takePictureImageName;
-@property (nonatomic, copy) NSString *photoSelImageName;
-@property (nonatomic, copy) NSString *photoDefImageName;
-@property (nonatomic, copy) NSString *photoOriginSelImageName;
-@property (nonatomic, copy) NSString *photoOriginDefImageName;
-@property (nonatomic, copy) NSString *photoPreviewOriginDefImageName;
-@property (nonatomic, copy) NSString *photoNumberIconImageName;
+@property (nonatomic, copy) NSString *takePictureImageName __attribute__((deprecated("Use -takePictureImage.")));
+@property (nonatomic, copy) NSString *photoSelImageName __attribute__((deprecated("Use -photoSelImage.")));
+@property (nonatomic, copy) NSString *photoDefImageName __attribute__((deprecated("Use -photoDefImage.")));
+@property (nonatomic, copy) NSString *photoOriginSelImageName __attribute__((deprecated("Use -photoOriginSelImage.")));
+@property (nonatomic, copy) NSString *photoOriginDefImageName __attribute__((deprecated("Use -photoOriginDefImage.")));
+@property (nonatomic, copy) NSString *photoPreviewOriginDefImageName __attribute__((deprecated("Use -photoPreviewOriginDefImage.")));
+@property (nonatomic, copy) NSString *photoNumberIconImageName __attribute__((deprecated("Use -photoNumberIconImage.")));
+@property (nonatomic, strong) UIImage *takePictureImage;
+@property (nonatomic, strong) UIImage *photoSelImage;
+@property (nonatomic, strong) UIImage *photoDefImage;
+@property (nonatomic, strong) UIImage *photoOriginSelImage;
+@property (nonatomic, strong) UIImage *photoOriginDefImage;
+@property (nonatomic, strong) UIImage *photoPreviewOriginDefImage;
+@property (nonatomic, strong) UIImage *photoNumberIconImage;
 
 #pragma mark -
 /// Appearance / 外观颜色 + 按钮文字
@@ -170,6 +224,10 @@
 @property (nonatomic, copy) NSString *fullImageBtnTitleStr;
 @property (nonatomic, copy) NSString *settingBtnTitleStr;
 @property (nonatomic, copy) NSString *processHintStr;
+
+/// Icon theme color, default is green color like wechat, the value is r:31 g:185 b:34. Currently only support image selection icon when showSelectedIndex is YES. If you need it, please set it as soon as possible
+/// icon主题色，默认是微信的绿色，值是r:31 g:185 b:34。目前仅支持showSelectedIndex为YES时的图片选中icon。如需要，请尽早设置它。
+@property (strong, nonatomic) UIColor *iconThemeColor;
 
 #pragma mark -
 - (void)cancelButtonClick;
@@ -274,4 +332,8 @@
 @property (strong, nonatomic) NSBundle *languageBundle;
 /// 默认是200，如果一个GIF过大，里面图片个数可能超过1000，会导致内存飙升而崩溃
 @property (assign, nonatomic) NSInteger gifPreviewMaxImagesCount;
+@property (assign, nonatomic) BOOL showSelectedIndex;
+@property (assign, nonatomic) BOOL showPhotoCannotSelectLayer;
+@property (assign, nonatomic) BOOL notScaleImage;
+@property (assign, nonatomic) BOOL needFixComposition;
 @end

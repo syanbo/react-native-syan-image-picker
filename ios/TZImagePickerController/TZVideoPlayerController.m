@@ -60,20 +60,20 @@
 - (void)configMoviePlayer {
     [[TZImageManager manager] getPhotoWithAsset:_model.asset completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
         if (!isDegraded && photo) {
-            _cover = photo;
-            _doneButton.enabled = YES;
+            self->_cover = photo;
+            self->_doneButton.enabled = YES;
         }
     }];
     [[TZImageManager manager] getVideoWithAsset:_model.asset completion:^(AVPlayerItem *playerItem, NSDictionary *info) {
         dispatch_async(dispatch_get_main_queue(), ^{
-            _player = [AVPlayer playerWithPlayerItem:playerItem];
-            _playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
-            _playerLayer.frame = self.view.bounds;
-            [self.view.layer addSublayer:_playerLayer];
+            self->_player = [AVPlayer playerWithPlayerItem:playerItem];
+            self->_playerLayer = [AVPlayerLayer playerLayerWithPlayer:self->_player];
+            self->_playerLayer.frame = self.view.bounds;
+            [self.view.layer addSublayer:self->_playerLayer];
             [self addProgressObserver];
             [self configPlayButton];
             [self configBottomToolBar];
-            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pausePlayerAndShowNaviBar) name:AVPlayerItemDidPlayToEndTimeNotification object:_player.currentItem];
+            [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(pausePlayerAndShowNaviBar) name:AVPlayerItemDidPlayToEndTimeNotification object:self->_player.currentItem];
         });
     }];
 }
@@ -121,6 +121,10 @@
     [_doneButton setTitleColor:tzImagePickerVc.oKButtonTitleColorDisabled forState:UIControlStateDisabled];
     [_toolBar addSubview:_doneButton];
     [self.view addSubview:_toolBar];
+    
+    if (tzImagePickerVc.videoPreviewPageUIConfigBlock) {
+        tzImagePickerVc.videoPreviewPageUIConfigBlock(_playButton, _toolBar, _doneButton);
+    }
 }
 
 #pragma mark - Layout
@@ -135,6 +139,11 @@
     _toolBar.frame = CGRectMake(0, self.view.tz_height - toolBarHeight, self.view.tz_width, toolBarHeight);
     _doneButton.frame = CGRectMake(self.view.tz_width - 44 - 12, 0, 44, 44);
     _playButton.frame = CGRectMake(0, statusBarAndNaviBarHeight, self.view.tz_width, self.view.tz_height - statusBarAndNaviBarHeight - toolBarHeight);
+    
+    TZImagePickerController *tzImagePickerVc = (TZImagePickerController *)self.navigationController;
+    if (tzImagePickerVc.videoPreviewPageDidLayoutSubviewsBlock) {
+        tzImagePickerVc.videoPreviewPageDidLayoutSubviewsBlock(_playButton, _toolBar, _doneButton);
+    }
 }
 
 #pragma mark - Click Event
@@ -155,8 +164,8 @@
 }
 
 - (void)doneButtonClick {
-    TZImagePickerController *imagePickerVc = (TZImagePickerController *)self.navigationController;
     if (self.navigationController) {
+        TZImagePickerController *imagePickerVc = (TZImagePickerController *)self.navigationController;
         if (imagePickerVc.autoDismiss) {
             [self.navigationController dismissViewControllerAnimated:YES completion:^{
                 [self callDelegateMethod];
