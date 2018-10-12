@@ -99,6 +99,7 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
     BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
     BOOL isRecordSelected = [self.cameraOptions sy_boolForKey:@"isRecordSelected"];
     BOOL allowPickingOriginalPhoto = [self.cameraOptions sy_boolForKey:@"allowPickingOriginalPhoto"];
+    BOOL sortAscendingByModificationDate = [self.cameraOptions sy_boolForKey:@"sortAscendingByModificationDate"];
     NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
     NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
     NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
@@ -111,8 +112,13 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
     imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
     imagePickerVc.allowPickingVideo = NO; // 不允许视频
     imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
+    imagePickerVc.sortAscendingByModificationDate = sortAscendingByModificationDate;
     imagePickerVc.alwaysEnableDoneBtn = YES;
     imagePickerVc.allowCrop = isCrop;   // 裁剪
+
+    if (isRecordSelected) {
+        imagePickerVc.selectedAssets = self.selectedAssets; // 当前已选中的图片
+    }
 
     if (imageCount == 1) {
         // 单选模式

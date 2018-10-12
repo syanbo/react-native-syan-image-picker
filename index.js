@@ -23,7 +23,8 @@ const defaultOptions = {
     showCropGrid: false,       // 是否隐藏裁剪区域网格，默认false
     quality: 90,               // 压缩质量
     enableBase64: false,       // 是否返回base64编码，默认不返回
-    allowPickingOriginalPhoto: false
+    allowPickingOriginalPhoto: false,
+    sortAscendingByModificationDate: true // 对照片排序，按修改时间升序，默认是YES。如果设置为NO,最新的照片会显示在最前面，内部的拍照按钮会排在第一个
 };
 
 export default {
