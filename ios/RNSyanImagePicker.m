@@ -98,6 +98,7 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
     BOOL isGif           = [self.cameraOptions sy_boolForKey:@"isGif"];
     BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
     BOOL isRecordSelected = [self.cameraOptions sy_boolForKey:@"isRecordSelected"];
+    BOOL allowPickingOriginalPhoto = [self.cameraOptions sy_boolForKey:@"allowPickingOriginalPhoto"];
     NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
     NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
     NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
@@ -109,27 +110,22 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
     imagePickerVc.allowPickingGif = isGif; // 允许GIF
     imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
     imagePickerVc.allowPickingVideo = NO; // 不允许视频
-    imagePickerVc.allowPickingOriginalPhoto = NO; // 允许原图
+    imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
     imagePickerVc.alwaysEnableDoneBtn = YES;
     imagePickerVc.allowCrop = isCrop;   // 裁剪
-
-    if (isRecordSelected) {
-        imagePickerVc.selectedAssets = self.selectedAssets; // 当前已选中的图片
-    }
 
     if (imageCount == 1) {
         // 单选模式
         imagePickerVc.showSelectBtn = NO;
-        imagePickerVc.allowPreview = NO;
 
         if(isCrop){
             if(showCropCircle) {
                 imagePickerVc.needCircleCrop = showCropCircle; //圆形裁剪
-                imagePickerVc.circleCropRadius = circleCropRadius; //圆形半径
+                imagePickerVc.circleCropRadius = circleCropRadius / 2; //圆形半径
             } else {
                 CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
                 CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
-                imagePickerVc.cropRect = imagePickerVc.cropRect = CGRectMake(x,y,CropW,CropH);
+                imagePickerVc.cropRect = CGRectMake(x,y,CropW,CropH);
             }
         }
     }
@@ -172,38 +168,24 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
 #pragma mark - UIImagePickerController
 - (void)takePhoto {
     AVAuthorizationStatus authStatus = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
-    if ((authStatus == AVAuthorizationStatusRestricted || authStatus == AVAuthorizationStatusDenied) && iOS7Later) {
+    if (authStatus == AVAuthorizationStatusRestricted || authStatus == AVAuthorizationStatusDenied) {
         // 无相机权限 做一个友好的提示
-        if (iOS8Later) {
-            UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"无法使用相机" message:@"请在iPhone的""设置-隐私-相机""中允许访问相机" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"设置", nil];
-            [alert show];
-        } else {
-            UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"无法使用相机" message:@"请在iPhone的""设置-隐私-相机""中允许访问相机" delegate:self cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [alert show];
-        }
+        UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"无法使用相机" message:@"请在iPhone的""设置-隐私-相机""中允许访问相机" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"设置", nil];
+        [alert show];
     } else if (authStatus == AVAuthorizationStatusNotDetermined) {
         // fix issue 466, 防止用户首次拍照拒绝授权时相机页黑屏
-        if (iOS7Later) {
-            [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
-                if (granted) {
-                    dispatch_sync(dispatch_get_main_queue(), ^{
-                        [self takePhoto];
-                    });
-                }
-            }];
-        } else {
-            [self takePhoto];
-        }
+        [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
+            if (granted) {
+                dispatch_async(dispatch_get_main_queue(), ^{
+                    [self takePhoto];
+                });
+            }
+        }];
         // 拍照之前还需要检查相册权限
-    } else if ([TZImageManager authorizationStatus] == 2) { // 已被拒绝，没有相册权限，将无法保存拍的照片
-        if (iOS8Later) {
-            UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"无法访问相册" message:@"请在iPhone的""设置-隐私-相册""中允许访问相册" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"设置", nil];
-            [alert show];
-        } else {
-            UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"无法访问相册" message:@"请在iPhone的""设置-隐私-相册""中允许访问相册" delegate:self cancelButtonTitle:@"确定" otherButtonTitles:nil];
-            [alert show];
-        }
-    } else if ([TZImageManager authorizationStatus] == 0) { // 未请求过相册权限
+    } else if ([PHPhotoLibrary authorizationStatus] == 2) { // 已被拒绝，没有相册权限，将无法保存拍的照片
+        UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"无法访问相册" message:@"请在iPhone的""设置-隐私-相册""中允许访问相册" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"设置", nil];
+        [alert show];
+    } else if ([PHPhotoLibrary authorizationStatus] == 0) { // 未请求过相册权限
         [[TZImageManager manager] requestAuthorizationWithCompletion:^{
             [self takePhoto];
         }];
@@ -217,9 +199,6 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
     UIImagePickerControllerSourceType sourceType = UIImagePickerControllerSourceTypeCamera;
     if ([UIImagePickerController isSourceTypeAvailable: UIImagePickerControllerSourceTypeCamera]) {
         self.imagePickerVc.sourceType = sourceType;
-        if(iOS8Later) {
-            self.imagePickerVc.modalPresentationStyle = UIModalPresentationOverCurrentContext;
-        }
         [[self topViewController] presentViewController:self.imagePickerVc animated:YES completion:nil];
     } else {
         NSLog(@"模拟器中无法打开照相机,请在真机中使用");
@@ -237,7 +216,7 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
             UIImage *image = [info objectForKey:UIImagePickerControllerOriginalImage];
 
             // save photo and get asset / 保存图片，获取到asset
-            [[TZImageManager manager] savePhotoWithImage:image location:NULL completion:^(NSError *error){
+            [[TZImageManager manager] savePhotoWithImage:image location:NULL completion:^(PHAsset *asset, NSError *error){
                 if (error) {
                     [tzImagePickerVc hideProgressHUD];
                     NSLog(@"图片保存失败 %@",error);
@@ -289,9 +268,7 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
 #pragma mark - UIAlertViewDelegate
 - (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
     if (buttonIndex == 1) { // 去设置界面，开启相机访问权限
-        if (iOS8Later) {
-            [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString]];
-        }
+        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString]];
     }
 }
 

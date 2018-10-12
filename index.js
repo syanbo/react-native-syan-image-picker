@@ -23,6 +23,7 @@ const defaultOptions = {
     showCropGrid: false,       // 是否隐藏裁剪区域网格，默认false
     quality: 90,               // 压缩质量
     enableBase64: false,       // 是否返回base64编码，默认不返回
+    allowPickingOriginalPhoto: false
 };
 
 export default {
