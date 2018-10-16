@@ -18,7 +18,7 @@ const defaultOptions = {
     CropH: ~~(width * 0.6),    // 裁剪高度，默认屏幕宽度60%
     isGif: false,              // 是否允许选择GIF，默认false，暂无回调GIF数据
     showCropCircle: false,     // 是否显示圆形裁剪区域，默认false
-    circleCropRadius: width/2, // 圆形裁剪半径，默认屏幕宽度一半
+    circleCropRadius: ~~(width / 4), // 圆形裁剪半径，默认屏幕宽度一半
     showCropFrame: true,       // 是否显示裁剪区域，默认true
     showCropGrid: false,       // 是否隐藏裁剪区域网格，默认false
     quality: 90,               // 压缩质量

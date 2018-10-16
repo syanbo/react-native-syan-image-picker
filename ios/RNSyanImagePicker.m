@@ -127,7 +127,7 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
         if(isCrop){
             if(showCropCircle) {
                 imagePickerVc.needCircleCrop = showCropCircle; //圆形裁剪
-                imagePickerVc.circleCropRadius = circleCropRadius / 2; //圆形半径
+                imagePickerVc.circleCropRadius = circleCropRadius; //圆形半径
             } else {
                 CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
                 CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
@@ -243,7 +243,7 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
                                 TZImagePickerController *imagePicker = [[TZImagePickerController alloc] initCropTypeWithAsset:assetModel.asset photo:image completion:^(UIImage *cropImage, id asset) {
                                     [self invokeSuccessWithResult:@[[self handleImageData:cropImage quality:quality]]];
                                 }];
-                                imagePicker.allowCrop = isCrop;   // 裁剪
+                                imagePicker.allowPickingImage = YES;
                                 if(showCropCircle) {
                                     imagePicker.needCircleCrop = showCropCircle; //圆形裁剪
                                     imagePicker.circleCropRadius = circleCropRadius; //圆形半径
