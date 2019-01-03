@@ -205,75 +205,82 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     private final ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
         @Override
-        public void onActivityResult(Activity activity, int requestCode, int resultCode, Intent data) {
-            switch (requestCode) {
-                case PictureConfig.CHOOSE_REQUEST:
-                    List<LocalMedia> tmpSelectList = PictureSelector.obtainMultipleResult(data);
-                    boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
-                    if (!tmpSelectList.isEmpty() && isRecordSelected) {
-                        selectList = tmpSelectList;
+        public void onActivityResult(Activity activity, int requestCode, int resultCode, final Intent data) {
+            if(requestCode == PictureConfig.CHOOSE_REQUEST){
+                new Thread(new Runnable() {
+                    @Override
+                    public void run() {
+                        onGetResult(data);
                     }
-
-                    WritableArray imageList = new WritableNativeArray();
-                    boolean enableBase64 = cameraOptions.getBoolean("enableBase64");
-
-                    for (LocalMedia media : tmpSelectList) {
-                        WritableMap aImage = new WritableNativeMap();
-
-                        BitmapFactory.Options options = new BitmapFactory.Options();
-
-                        options.inJustDecodeBounds = true;
-                        if (!media.isCompressed()) {
-                            BitmapFactory.decodeFile(media.getPath(), options);
-                            aImage.putDouble("width", options.outWidth);
-                            aImage.putDouble("height", options.outHeight);
-                            aImage.putString("type", "image");
-                            aImage.putString("uri", "file://" + media.getPath());
-
-                            //decode to bitmap
-                            Bitmap bitmap = BitmapFactory.decodeFile(media.getPath());
-                            aImage.putInt("size", bitmap.getByteCount());
-
-                            //base64 encode
-                            if (enableBase64) {
-                                String encodeString = getBase64EncodeString(bitmap);
-                                aImage.putString("base64", encodeString);
-                            }
-                        } else {
-                            // 压缩过，取 media.getCompressPath();
-                            BitmapFactory.decodeFile(media.getCompressPath(), options);
-                            aImage.putDouble("width", options.outWidth);
-                            aImage.putDouble("height", options.outHeight);
-                            aImage.putString("type", "image");
-                            aImage.putString("uri", "file://" + media.getCompressPath());
-
-                            //decode to bitmap
-                            Bitmap bitmap = BitmapFactory.decodeFile(media.getCompressPath());
-                            aImage.putInt("size", bitmap.getByteCount());
-
-                            //base64 encode
-                            if (enableBase64) {
-                                String encodeString = getBase64EncodeString(bitmap);
-                                aImage.putString("base64", encodeString);
-                            }
-                        }
-
-                        if (media.isCut()) {
-                            aImage.putString("original_uri", "file://" + media.getCutPath());
-                        } else {
-                            aImage.putString("original_uri", "file://" + media.getPath());
-                        }
-
-                        imageList.pushMap(aImage);
-                    }
-                    if (tmpSelectList.isEmpty()) {
-                        invokeError();
-                    } else {
-                        invokeSuccessWithResult(imageList);
-                    }
+                }).run();
             }
         }
     };
+
+    private void onGetResult(Intent data){
+        List<LocalMedia> tmpSelectList = PictureSelector.obtainMultipleResult(data);
+        boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
+        if (!tmpSelectList.isEmpty() && isRecordSelected) {
+            selectList = tmpSelectList;
+        }
+
+        WritableArray imageList = new WritableNativeArray();
+        boolean enableBase64 = cameraOptions.getBoolean("enableBase64");
+
+        for (LocalMedia media : tmpSelectList) {
+            WritableMap aImage = new WritableNativeMap();
+
+            BitmapFactory.Options options = new BitmapFactory.Options();
+
+            options.inJustDecodeBounds = true;
+            if (!media.isCompressed()) {
+                BitmapFactory.decodeFile(media.getPath(), options);
+                aImage.putDouble("width", options.outWidth);
+                aImage.putDouble("height", options.outHeight);
+                aImage.putString("type", "image");
+                aImage.putString("uri", "file://" + media.getPath());
+
+                //decode to bitmap
+                Bitmap bitmap = BitmapFactory.decodeFile(media.getPath());
+                aImage.putInt("size", bitmap.getByteCount());
+
+                //base64 encode
+                if (enableBase64) {
+                    String encodeString = getBase64EncodeString(bitmap);
+                    aImage.putString("base64", encodeString);
+                }
+            } else {
+                // 压缩过，取 media.getCompressPath();
+                BitmapFactory.decodeFile(media.getCompressPath(), options);
+                aImage.putDouble("width", options.outWidth);
+                aImage.putDouble("height", options.outHeight);
+                aImage.putString("type", "image");
+                aImage.putString("uri", "file://" + media.getCompressPath());
+
+                //decode to bitmap
+                Bitmap bitmap = BitmapFactory.decodeFile(media.getCompressPath());
+                aImage.putInt("size", bitmap.getByteCount());
+
+                //base64 encode
+                if (enableBase64) {
+                    String encodeString = getBase64EncodeString(bitmap);
+                    aImage.putString("base64", encodeString);
+                }
+            }
+
+            if (media.isCut()) {
+                aImage.putString("original_uri", "file://" + media.getCutPath());
+            } else {
+                aImage.putString("original_uri", "file://" + media.getPath());
+            }
+            imageList.pushMap(aImage);
+        }
+        if (tmpSelectList.isEmpty()) {
+            invokeError();
+        } else {
+            invokeSuccessWithResult(imageList);
+        }
+    }
 
     /**
      * 获取图片base64编码字符串
