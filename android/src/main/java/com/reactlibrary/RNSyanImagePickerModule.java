@@ -94,8 +94,6 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         this.openVideoPicker();
     }
 
-
-
     /**
      * 缓存清除
      * 包括裁剪和压缩后的缓存，要在上传成功后调用，注意：需要系统sd卡权限
@@ -229,13 +227,12 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
      * 拍摄视频
      */
     private void openVideo() {
-
-
         int quality = this.cameraOptions.getInt("quality");
         int MaxSecond = this.cameraOptions.getInt("MaxSecond");
         int MinSecond = this.cameraOptions.getInt("MinSecond");
         int recordVideoSecond = this.cameraOptions.getInt("recordVideoSecond");
         int imageCount = this.cameraOptions.getInt("imageCount");
+
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openCamera(PictureMimeType.ofVideo())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
@@ -299,6 +296,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                         BitmapFactory.Options options = new BitmapFactory.Options();
 
                         options.inJustDecodeBounds = true;
+
                         if (!media.isCompressed()) {
                             BitmapFactory.decodeFile(media.getPath(), options);
                             aImage.putDouble("width", options.outWidth);
