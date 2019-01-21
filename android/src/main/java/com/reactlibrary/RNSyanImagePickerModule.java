@@ -86,6 +86,15 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         this.openVideo();
     }
 
+    @ReactMethod
+    public void openVideoPicker(ReadableMap options, Callback callback) {
+        this.cameraOptions = options;
+        this.mPickerPromise = null;
+        this.mPickerCallback = callback;
+        this.openVideoPicker();
+    }
+
+
 
     /**
      * 缓存清除
@@ -171,10 +180,10 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .rotateEnabled(true) // 裁剪是否可旋转图片 true or false
                 .scaleEnabled(true)// 裁剪是否可放大缩小图片 true or false
                 .selectionMedia(selectList) // 当前已选中的图片 List
-                // .videoQuality(0)// 视频录制质量 0 or 1 int
+               // .videoQuality(0)// 视频录制质量 0 or 1 int
                 //.videoMaxSecond(15)// 显示多少秒以内的视频or音频也可适用 int
-                // .videoMinSecond(10)// 显示多少秒以内的视频or音频也可适用 int
-                // .recordVideoSecond(60)//视频秒数录制 默认60s int
+               // .videoMinSecond(10)// 显示多少秒以内的视频or音频也可适用 int
+               // .recordVideoSecond(60)//视频秒数录制 默认60s int
                 .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
     }
 
@@ -234,6 +243,32 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .openClickSound(false)// 是否开启点击声音 true or false
                 .maxSelectNum(imageCount)// 最大图片选择数量 int
                 .minSelectNum(0)// 最小选择数量 int
+                .imageSpanCount(4)// 每行显示个数 int
+                .selectionMode(PictureConfig.MULTIPLE)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
+                .previewVideo(true)// 是否可预览视频 true or false
+                .videoQuality(quality)// 视频录制质量 0 or 1 int
+                .videoMaxSecond(MaxSecond)// 显示多少秒以内的视频or音频也可适用 int
+                .videoMinSecond(MinSecond)// 显示多少秒以内的视频or音频也可适用 int
+                .recordVideoSecond(recordVideoSecond)//视频秒数录制 默认60s int
+                .forResult(PictureConfig.REQUEST_CAMERA);//结果回调onActivityResult code
+    }
+
+    /**
+     * 选择视频
+     */
+    private void openVideoPicker() {
+        int quality = this.cameraOptions.getInt("quality");
+        int MaxSecond = this.cameraOptions.getInt("MaxSecond");
+        int MinSecond = this.cameraOptions.getInt("MinSecond");
+        int recordVideoSecond = this.cameraOptions.getInt("recordVideoSecond");
+        int videoCount = this.cameraOptions.getInt("videoCount");
+        Activity currentActivity = getCurrentActivity();
+        PictureSelector.create(currentActivity)
+                .openGallery(PictureMimeType.ofVideo())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
+                .selectionMedia(selectList) // 当前已选中的视频 List
+                .openClickSound(false)// 是否开启点击声音 true or false
+                .maxSelectNum(videoCount)// 最大视频选择数量 int
+                .minSelectNum(1)// 最小选择数量 int
                 .imageSpanCount(4)// 每行显示个数 int
                 .selectionMode(PictureConfig.MULTIPLE)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
                 .previewVideo(true)// 是否可预览视频 true or false
@@ -313,26 +348,26 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                         invokeSuccessWithResult(imageList);
                     }
                     break;
-                case PictureConfig.REQUEST_CAMERA:
-                    List<LocalMedia> mVideoSelectList = PictureSelector.obtainMultipleResult(data);
-                    boolean isRecordSelectedV = cameraOptions.getBoolean("isRecordSelected");
-                    if (!mVideoSelectList.isEmpty()&&isRecordSelectedV) {
-                        selectList = mVideoSelectList;
-                    }
-                    WritableArray videoList = new WritableNativeArray();
-                    for (LocalMedia media : mVideoSelectList) {
-                        WritableMap avideo = new WritableNativeMap();
-                        avideo.putString("uri", "file://" + media.getPath());
-                        videoList.pushMap(avideo);
-                    }
+                    case PictureConfig.REQUEST_CAMERA:
+                        List<LocalMedia> mVideoSelectList = PictureSelector.obtainMultipleResult(data);
+                        boolean isRecordSelectedV = cameraOptions.getBoolean("isRecordSelected");
+                        if (!mVideoSelectList.isEmpty()&&isRecordSelectedV) {
+                            selectList = mVideoSelectList;
+                        }
+                        WritableArray videoList = new WritableNativeArray();
+                        for (LocalMedia media : mVideoSelectList) {
+                            WritableMap avideo = new WritableNativeMap();
+                            avideo.putString("uri", "file://" + media.getPath());
+                            videoList.pushMap(avideo);
+                        }
 
-                    if (mVideoSelectList.isEmpty()) {
-                        invokeError();
-                    } else {
-                        invokeSuccessWithResult(videoList);
-                    }
+                        if (mVideoSelectList.isEmpty()) {
+                            invokeError();
+                        } else {
+                            invokeSuccessWithResult(videoList);
+                        }
 
-                    break;
+                        break;
 
             }
         }
