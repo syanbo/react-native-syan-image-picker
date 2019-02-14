@@ -89,6 +89,130 @@ RCT_EXPORT_METHOD(removeAllPhoto) {
     }
 }
 
+// openVideoPicker
+RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback) {
+    [self openTZImagePicker:options callback:callback];
+}
+
+- (void)openTZImagePicker:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback {
+    // 照片最大可选张数
+    NSInteger imageCount = [options sy_integerForKey:@"imageCount"];
+    // 显示内部拍照按钮
+    BOOL isCamera        = [options sy_boolForKey:@"isCamera"];
+    BOOL isCrop          = [options sy_boolForKey:@"isCrop"];
+    BOOL allowPickingGif = [options sy_boolForKey:@"allowPickingGif"];
+    BOOL allowPickingVideo = [options sy_boolForKey:@"allowPickingVideo"];
+    BOOL allowPickingMultipleVideo = [options sy_boolForKey:@"allowPickingMultipleVideo"];
+    BOOL allowPickingImage = [options sy_boolForKey:@"allowPickingImage"];
+    BOOL showCropCircle  = [options sy_boolForKey:@"showCropCircle"];
+    BOOL isRecordSelected = [options sy_boolForKey:@"isRecordSelected"];
+    BOOL allowPickingOriginalPhoto = [options sy_boolForKey:@"allowPickingOriginalPhoto"];
+    BOOL sortAscendingByModificationDate = [options sy_boolForKey:@"sortAscendingByModificationDate"];
+    NSInteger CropW      = [options sy_integerForKey:@"CropW"];
+    NSInteger CropH      = [options sy_integerForKey:@"CropH"];
+    NSInteger circleCropRadius = [options sy_integerForKey:@"circleCropRadius"];
+    NSInteger videoMaximumDuration = [options sy_integerForKey:@"videoMaximumDuration"];
+
+    TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:nil];
+
+    imagePickerVc.maxImagesCount = imageCount;
+    imagePickerVc.allowPickingGif = allowPickingGif; // 允许GIF
+    imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
+    imagePickerVc.allowPickingVideo = allowPickingVideo; // 不允许视频
+    imagePickerVc.allowPickingImage = allowPickingImage;
+    imagePickerVc.allowTakeVideo = NO;
+    imagePickerVc.videoMaximumDuration = videoMaximumDuration;
+    imagePickerVc.allowPickingMultipleVideo = allowPickingMultipleVideo;
+    imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
+    imagePickerVc.sortAscendingByModificationDate = sortAscendingByModificationDate;
+    imagePickerVc.alwaysEnableDoneBtn = YES;
+    imagePickerVc.allowCrop = isCrop;   // 裁剪
+    imagePickerVc.autoDismiss = NO;
+
+    if (isRecordSelected) {
+        imagePickerVc.selectedAssets = self.selectedAssets; // 当前已选中的图片
+    }
+
+    if (imageCount == 1) {
+        // 单选模式
+        imagePickerVc.showSelectBtn = NO;
+
+        if(isCrop){
+            if(showCropCircle) {
+                imagePickerVc.needCircleCrop = showCropCircle; //圆形裁剪
+                imagePickerVc.circleCropRadius = circleCropRadius; //圆形半径
+            } else {
+                CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
+                CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
+                imagePickerVc.cropRect = CGRectMake(x,y,CropW,CropH);
+            }
+        }
+    }
+
+    __block TZImagePickerController *weakPicker = imagePickerVc;
+    [imagePickerVc setDidFinishPickingPhotosWithInfosHandle:^(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos) {
+        NSMutableArray *selectArray = [NSMutableArray array];
+        for (NSInteger i = 0; i < assets.count; i++) {
+            PHAsset *asset = assets[i];
+            [[TZImageManager manager] getVideoOutputPathWithAsset:asset presetName:AVAssetExportPreset640x480 success:^(NSString *outputPath) {
+                NSMutableDictionary *video = [NSMutableDictionary dictionary];
+                video[@"uri"] = outputPath;
+                video[@"fileName"] = [asset valueForKey:@"filename"];
+                PHAssetResource *resource = [[PHAssetResource assetResourcesForAsset:asset] firstObject];
+                long long size = [[resource valueForKey:@"fileSize"] longLongValue];
+                video[@"size"] = @(size);
+                if (asset.mediaType == PHAssetMediaTypeVideo) {
+                    video[@"type"] = @"video";
+                }
+                [selectArray addObject:video];
+                if(selectArray.count == assets.count) {
+                    callback(@[[NSNull null], selectArray]);
+                    [weakPicker dismissViewControllerAnimated:YES completion:nil];
+                    [weakPicker hideProgressHUD];
+                }
+
+            } failure:^(NSString *errorMessage, NSError *error) {
+                NSLog(@"视频导出失败:%@,error:%@",errorMessage, error);
+                [weakPicker dismissViewControllerAnimated:YES completion:nil];
+                [weakPicker hideProgressHUD];
+            }];
+        }
+    }];
+
+    [imagePickerVc setDidFinishPickingVideoHandle:^(UIImage *coverImage, PHAsset *asset) {
+        [weakPicker showProgressHUD];
+        [[TZImageManager manager] getVideoOutputPathWithAsset:asset presetName:AVAssetExportPreset640x480 success:^(NSString *outputPath) {
+            NSLog(@"视频导出到本地完成,沙盒路径为:%@",outputPath);
+            NSMutableDictionary *photo = [NSMutableDictionary dictionary];
+            photo[@"uri"] = outputPath;
+            photo[@"fileName"] = [asset valueForKey:@"filename"];
+            PHAssetResource *resource = [[PHAssetResource assetResourcesForAsset:asset] firstObject];
+            long long size = [[resource valueForKey:@"fileSize"] longLongValue];
+            photo[@"size"] = @(size);
+            if (asset.mediaType == PHAssetMediaTypeVideo) {
+                photo[@"type"] = @"video";
+            }
+            callback(@[[NSNull null], @[photo]]);
+            [weakPicker dismissViewControllerAnimated:YES completion:nil];
+            [weakPicker hideProgressHUD];
+        } failure:^(NSString *errorMessage, NSError *error) {
+            NSLog(@"视频导出失败:%@,error:%@",errorMessage, error);
+            callback(@[@"视频导出失败"]);
+            [weakPicker dismissViewControllerAnimated:YES completion:nil];
+            [weakPicker hideProgressHUD];
+        }];
+    }];
+
+    __block TZImagePickerController *weakPickerVc = imagePickerVc;
+    [imagePickerVc setImagePickerControllerDidCancelHandle:^{
+        callback(@[@"取消"]);
+        [weakPicker dismissViewControllerAnimated:YES completion:nil];
+        [weakPickerVc hideProgressHUD];
+    }];
+
+    [[self topViewController] presentViewController:imagePickerVc animated:YES completion:nil];
+}
+
 - (void)openImagePicker {
     // 照片最大可选张数
     NSInteger imageCount = [self.cameraOptions sy_integerForKey:@"imageCount"];

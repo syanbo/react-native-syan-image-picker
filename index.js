@@ -24,6 +24,7 @@ const defaultOptions = {
     quality: 90,               // 压缩质量
     enableBase64: false,       // 是否返回base64编码，默认不返回
     allowPickingOriginalPhoto: false,
+    videoMaximumDuration: 10 * 60, // 视频最大拍摄时间，默认是10分钟，单位是秒
     sortAscendingByModificationDate: true // 对照片排序，按修改时间升序，默认是YES。如果设置为NO,最新的照片会显示在最前面，内部的拍照按钮会排在第一个
 };
 
@@ -45,7 +46,7 @@ export default {
      *
      * @param {Object} options 相册参数
      * @param {Function} callback 成功，或失败回调
-    */
+     */
     showImagePicker(options, callback) {
         const optionObj = {
             ...defaultOptions,
@@ -79,11 +80,11 @@ export default {
      *  }
      * @param {Object} options 相册参数
      * @return {Promise} 返回一个Promise对象
-    */
+     */
     asyncShowImagePicker(options) {
         const optionObj = {
-          ...defaultOptions,
-          ...options,
+            ...defaultOptions,
+            ...options,
         };
         return RNSyanImagePicker.asyncShowImagePicker(optionObj);
     },
@@ -95,7 +96,7 @@ export default {
      */
     openCamera(options, callback) {
         const optionObj = {
-                ...defaultOptions,
+            ...defaultOptions,
             ...options
         };
         RNSyanImagePicker.openCamera(optionObj, callback)
@@ -121,5 +122,19 @@ export default {
      */
     removeAllPhoto() {
         RNSyanImagePicker.removeAllPhoto()
+    },
+
+    openVideoPicker(options, callback) {
+        const optionObj = {
+            ...defaultOptions,
+            isCamera: false,
+            allowPickingGif: false,
+            allowPickingVideo: true,
+            allowPickingGif: true,
+            allowPickingImage: false,
+            allowPickingMultipleVideo: true,
+            videoMaximumDuration: 20
+        };
+        RNSyanImagePicker.openVideoPicker(optionObj, callback)
     }
 };
