@@ -133,7 +133,8 @@ export default {
             allowPickingGif: true,
             allowPickingImage: false,
             allowPickingMultipleVideo: true,
-            videoMaximumDuration: 20
+            videoMaximumDuration: 20,
+            ...options
         };
         RNSyanImagePicker.openVideoPicker(optionObj, callback)
     }

@@ -164,6 +164,14 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
                 if (asset.mediaType == PHAssetMediaTypeVideo) {
                     video[@"type"] = @"video";
                 }
+                video[@"duration"] = @(asset.duration);
+                NSData *imageData = UIImagePNGRepresentation(photos[i]);
+                NSString *fileName = [NSString stringWithFormat:@"%@.png", [[NSUUID UUID] UUIDString]];
+                [self createDir];
+                NSString *filePath = [NSString stringWithFormat:@"%@ImageCaches/%@", NSTemporaryDirectory(), fileName];
+                if ([imageData writeToFile:filePath atomically:YES]) {
+                    video[@"coverUri"] = filePath;
+                }
                 [selectArray addObject:video];
                 if(selectArray.count == assets.count) {
                     callback(@[[NSNull null], selectArray]);
@@ -183,16 +191,24 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         [weakPicker showProgressHUD];
         [[TZImageManager manager] getVideoOutputPathWithAsset:asset presetName:AVAssetExportPreset640x480 success:^(NSString *outputPath) {
             NSLog(@"视频导出到本地完成,沙盒路径为:%@",outputPath);
-            NSMutableDictionary *photo = [NSMutableDictionary dictionary];
-            photo[@"uri"] = outputPath;
-            photo[@"fileName"] = [asset valueForKey:@"filename"];
+            NSMutableDictionary *video = [NSMutableDictionary dictionary];
+            video[@"uri"] = outputPath;
+            video[@"fileName"] = [asset valueForKey:@"filename"];
             PHAssetResource *resource = [[PHAssetResource assetResourcesForAsset:asset] firstObject];
             long long size = [[resource valueForKey:@"fileSize"] longLongValue];
-            photo[@"size"] = @(size);
+            video[@"size"] = @(size);
             if (asset.mediaType == PHAssetMediaTypeVideo) {
-                photo[@"type"] = @"video";
+                video[@"type"] = @"video";
             }
-            callback(@[[NSNull null], @[photo]]);
+            video[@"duration"] = @(asset.duration);
+            NSData *imageData = UIImagePNGRepresentation(coverImage);
+            NSString *fileName = [NSString stringWithFormat:@"%@.png", [[NSUUID UUID] UUIDString]];
+            [self createDir];
+            NSString *filePath = [NSString stringWithFormat:@"%@ImageCaches/%@", NSTemporaryDirectory(), fileName];
+            if ([imageData writeToFile:filePath atomically:YES]) {
+                video[@"coverUri"] = filePath;
+            }
+            callback(@[[NSNull null], @[video]]);
             [weakPicker dismissViewControllerAnimated:YES completion:nil];
             [weakPicker hideProgressHUD];
         } failure:^(NSString *errorMessage, NSError *error) {

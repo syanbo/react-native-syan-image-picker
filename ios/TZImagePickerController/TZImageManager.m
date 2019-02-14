@@ -142,9 +142,9 @@ static dispatch_once_t onceToken;
             // 有可能是PHCollectionList类的的对象，过滤掉
             if (![collection isKindOfClass:[PHAssetCollection class]]) continue;
             // 过滤空相册
-            if (collection.estimatedAssetCount <= 0 && ![self isCameraRollAlbum:collection]) continue;
+            if (collection.estimatedAssetCount <= 0) continue;
             PHFetchResult *fetchResult = [PHAsset fetchAssetsInAssetCollection:collection options:option];
-            if (fetchResult.count < 1 && ![self isCameraRollAlbum:collection]) continue;
+            if (fetchResult.count < 1) continue;
             
             if ([self.pickerDelegate respondsToSelector:@selector(isAlbumCanSelect:result:)]) {
                 if (![self.pickerDelegate isAlbumCanSelect:collection.localizedTitle result:fetchResult]) {
@@ -161,9 +161,7 @@ static dispatch_once_t onceToken;
             }
         }
     }
-    if (completion) {
-        completion(albumArr);
-    }
+    if (completion && albumArr.count > 0) completion(albumArr);
 }
 
 #pragma mark - Get Assets
@@ -303,7 +301,7 @@ static dispatch_once_t onceToken;
 #pragma mark - Get Photo
 
 /// Get photo 获得照片本身
-- (PHImageRequestID)getPhotoWithAsset:(PHAsset *)asset completion:(void (^)(UIImage *, NSDictionary *, BOOL isDegraded))completion {
+- (int32_t)getPhotoWithAsset:(PHAsset *)asset completion:(void (^)(UIImage *, NSDictionary *, BOOL isDegraded))completion {
     CGFloat fullScreenWidth = TZScreenWidth;
     if (fullScreenWidth > _photoPreviewMaxWidth) {
         fullScreenWidth = _photoPreviewMaxWidth;
@@ -311,11 +309,11 @@ static dispatch_once_t onceToken;
     return [self getPhotoWithAsset:asset photoWidth:fullScreenWidth completion:completion progressHandler:nil networkAccessAllowed:YES];
 }
 
-- (PHImageRequestID)getPhotoWithAsset:(PHAsset *)asset photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion {
+- (int32_t)getPhotoWithAsset:(PHAsset *)asset photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion {
     return [self getPhotoWithAsset:asset photoWidth:photoWidth completion:completion progressHandler:nil networkAccessAllowed:YES];
 }
 
-- (PHImageRequestID)getPhotoWithAsset:(PHAsset *)asset completion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler networkAccessAllowed:(BOOL)networkAccessAllowed {
+- (int32_t)getPhotoWithAsset:(PHAsset *)asset completion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler networkAccessAllowed:(BOOL)networkAccessAllowed {
     CGFloat fullScreenWidth = TZScreenWidth;
     if (_photoPreviewMaxWidth > 0 && fullScreenWidth > _photoPreviewMaxWidth) {
         fullScreenWidth = _photoPreviewMaxWidth;
@@ -323,7 +321,7 @@ static dispatch_once_t onceToken;
     return [self getPhotoWithAsset:asset photoWidth:fullScreenWidth completion:completion progressHandler:progressHandler networkAccessAllowed:networkAccessAllowed];
 }
 
-- (PHImageRequestID)requestImageDataForAsset:(PHAsset *)asset completion:(void (^)(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info))completion progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler {
+- (int32_t)requestImageDataForAsset:(PHAsset *)asset completion:(void (^)(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info))completion progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler {
     PHImageRequestOptions *options = [[PHImageRequestOptions alloc] init];
     options.progressHandler = ^(double progress, NSError *error, BOOL *stop, NSDictionary *info) {
         dispatch_async(dispatch_get_main_queue(), ^{
@@ -340,14 +338,14 @@ static dispatch_once_t onceToken;
     return imageRequestID;
 }
 
-- (PHImageRequestID)getPhotoWithAsset:(PHAsset *)asset photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler networkAccessAllowed:(BOOL)networkAccessAllowed {
+- (int32_t)getPhotoWithAsset:(PHAsset *)asset photoWidth:(CGFloat)photoWidth completion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler networkAccessAllowed:(BOOL)networkAccessAllowed {
     CGSize imageSize;
     if (photoWidth < TZScreenWidth && photoWidth < _photoPreviewMaxWidth) {
         imageSize = AssetGridThumbnailSize;
     } else {
         PHAsset *phAsset = (PHAsset *)asset;
         CGFloat aspectRatio = phAsset.pixelWidth / (CGFloat)phAsset.pixelHeight;
-        CGFloat pixelWidth = photoWidth * TZScreenScale;
+        CGFloat pixelWidth = photoWidth * TZScreenScale * 1.5;
         // 超宽图片
         if (aspectRatio > 1.8) {
             pixelWidth = pixelWidth * aspectRatio;
@@ -403,37 +401,30 @@ static dispatch_once_t onceToken;
 }
 
 /// Get postImage / 获取封面图
-- (PHImageRequestID)getPostImageWithAlbumModel:(TZAlbumModel *)model completion:(void (^)(UIImage *))completion {
+- (void)getPostImageWithAlbumModel:(TZAlbumModel *)model completion:(void (^)(UIImage *))completion {
     id asset = [model.result lastObject];
     if (!self.sortAscendingByModificationDate) {
         asset = [model.result firstObject];
     }
-    return [[TZImageManager manager] getPhotoWithAsset:asset photoWidth:80 completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
+    [[TZImageManager manager] getPhotoWithAsset:asset photoWidth:80 completion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
         if (completion) completion(photo);
     }];
 }
 
 /// Get Original Photo / 获取原图
-- (PHImageRequestID)getOriginalPhotoWithAsset:(PHAsset *)asset completion:(void (^)(UIImage *photo,NSDictionary *info))completion {
-   return [self getOriginalPhotoWithAsset:asset newCompletion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
+- (void)getOriginalPhotoWithAsset:(PHAsset *)asset completion:(void (^)(UIImage *photo,NSDictionary *info))completion {
+    [self getOriginalPhotoWithAsset:asset newCompletion:^(UIImage *photo, NSDictionary *info, BOOL isDegraded) {
         if (completion) {
             completion(photo,info);
         }
     }];
 }
 
-- (PHImageRequestID)getOriginalPhotoWithAsset:(PHAsset *)asset newCompletion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion {
-    return [self getOriginalPhotoWithAsset:asset progressHandler:nil newCompletion:completion];
-}
-
-- (PHImageRequestID)getOriginalPhotoWithAsset:(PHAsset *)asset progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler newCompletion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion {
+- (void)getOriginalPhotoWithAsset:(PHAsset *)asset newCompletion:(void (^)(UIImage *photo,NSDictionary *info,BOOL isDegraded))completion {
     PHImageRequestOptions *option = [[PHImageRequestOptions alloc]init];
     option.networkAccessAllowed = YES;
-    if (progressHandler) {
-        [option setProgressHandler:progressHandler];
-    }
     option.resizeMode = PHImageRequestOptionsResizeModeFast;
-    return [[PHImageManager defaultManager] requestImageForAsset:asset targetSize:PHImageManagerMaximumSize contentMode:PHImageContentModeAspectFit options:option resultHandler:^(UIImage *result, NSDictionary *info) {
+    [[PHImageManager defaultManager] requestImageForAsset:asset targetSize:PHImageManagerMaximumSize contentMode:PHImageContentModeAspectFit options:option resultHandler:^(UIImage *result, NSDictionary *info) {
         BOOL downloadFinined = (![[info objectForKey:PHImageCancelledKey] boolValue] && ![info objectForKey:PHImageErrorKey]);
         if (downloadFinined && result) {
             result = [self fixOrientation:result];
@@ -443,11 +434,11 @@ static dispatch_once_t onceToken;
     }];
 }
 
-- (PHImageRequestID)getOriginalPhotoDataWithAsset:(PHAsset *)asset completion:(void (^)(NSData *data,NSDictionary *info,BOOL isDegraded))completion {
-    return [self getOriginalPhotoDataWithAsset:asset progressHandler:nil completion:completion];
+- (void)getOriginalPhotoDataWithAsset:(PHAsset *)asset completion:(void (^)(NSData *data,NSDictionary *info,BOOL isDegraded))completion {
+    [self getOriginalPhotoDataWithAsset:asset progressHandler:nil completion:completion];
 }
 
-- (PHImageRequestID)getOriginalPhotoDataWithAsset:(PHAsset *)asset progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler completion:(void (^)(NSData *data,NSDictionary *info,BOOL isDegraded))completion {
+- (void)getOriginalPhotoDataWithAsset:(PHAsset *)asset progressHandler:(void (^)(double progress, NSError *error, BOOL *stop, NSDictionary *info))progressHandler completion:(void (^)(NSData *data,NSDictionary *info,BOOL isDegraded))completion {
     PHImageRequestOptions *option = [[PHImageRequestOptions alloc] init];
     option.networkAccessAllowed = YES;
     if ([[asset valueForKey:@"filename"] hasSuffix:@"GIF"]) {
@@ -456,7 +447,7 @@ static dispatch_once_t onceToken;
     }
     [option setProgressHandler:progressHandler];
     option.deliveryMode = PHImageRequestOptionsDeliveryModeHighQualityFormat;
-    return [[PHImageManager defaultManager] requestImageDataForAsset:asset options:option resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
+    [[PHImageManager defaultManager] requestImageDataForAsset:asset options:option resultHandler:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
         BOOL downloadFinined = (![[info objectForKey:PHImageCancelledKey] boolValue] && ![info objectForKey:PHImageErrorKey]);
         if (downloadFinined && imageData) {
             if (completion) completion(imageData,info,NO);
@@ -581,12 +572,10 @@ static dispatch_once_t onceToken;
     // You can compress the resolution to lower. Or you can support more higher resolution.
     if ([presets containsObject:presetName]) {
         AVAssetExportSession *session = [[AVAssetExportSession alloc] initWithAsset:videoAsset presetName:presetName];
+        
         NSDateFormatter *formater = [[NSDateFormatter alloc] init];
         [formater setDateFormat:@"yyyy-MM-dd-HH:mm:ss-SSS"];
-        NSString *outputPath = [NSHomeDirectory() stringByAppendingFormat:@"/tmp/video-%@.mp4", [formater stringFromDate:[NSDate date]]];
-        if (videoAsset.URL && videoAsset.URL.lastPathComponent) {
-            outputPath = [outputPath stringByReplacingOccurrencesOfString:@".mp4" withString:[NSString stringWithFormat:@"-%@", videoAsset.URL.lastPathComponent]];
-        }
+        NSString *outputPath = [NSHomeDirectory() stringByAppendingFormat:@"/tmp/output-%@.mp4", [formater stringFromDate:[NSDate date]]];
         // NSLog(@"video outputPath = %@",outputPath);
         session.outputURL = [NSURL fileURLWithPath:outputPath];
         
