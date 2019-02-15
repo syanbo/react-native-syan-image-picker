@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.text.TextUtils;
 import android.util.Base64;
 
 import com.facebook.react.bridge.ActivityEventListener;
@@ -25,7 +26,9 @@ import com.luck.picture.lib.config.PictureMimeType;
 import com.luck.picture.lib.entity.LocalMedia;
 import com.luck.picture.lib.tools.PictureFileUtils;
 
+
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -90,6 +93,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     /**
      * 移除选中的图片
+     *
      * @param {int} index 要移除的图片下标
      */
     @ReactMethod
@@ -108,6 +112,22 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             //selectList.clear();
             selectList = null;
         }
+    }
+
+    @ReactMethod
+    public void openVideo(ReadableMap options, Callback callback) {
+        this.cameraOptions = options;
+        this.mPickerPromise = null;
+        this.mPickerCallback = callback;
+        this.openVideo();
+    }
+
+    @ReactMethod
+    public void openVideoPicker(ReadableMap options, Callback callback) {
+        this.cameraOptions = options;
+        this.mPickerPromise = null;
+        this.mPickerCallback = callback;
+        this.openVideoPicker();
     }
 
     /**
@@ -139,6 +159,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .imageSpanCount(4)// 每行显示个数 int
                 .selectionMode(modeValue)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
                 .previewImage(true)// 是否可预览图片 true or false
+                // TODO: 2019/2/14 需要根据用户设置来决定是否展示video
                 .previewVideo(false)// 是否可预览视频 true or false
                 .enablePreviewAudio(false) // 是否可播放音频 true or false
                 .isCamera(isCamera)// 是否显示拍照按钮 true or false
@@ -195,6 +216,10 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .showCropFrame(showCropFrame)// 是否显示裁剪矩形边框 圆形裁剪时建议设为false   true or false
                 .showCropGrid(showCropGrid)// 是否显示裁剪矩形网格 圆形裁剪时建议设为false    true or false
                 .openClickSound(false)// 是否开启点击声音 true or false
+                .videoQuality(1)// 视频录制质量 0 or 1 int
+                .videoMaxSecond(15)// 显示多少秒以内的视频or音频也可适用 int
+                .videoMinSecond(10)// 显示多少秒以内的视频or音频也可适用 int
+                .recordVideoSecond(60)//视频秒数录制 默认60s int
                 .cropCompressQuality(quality)// 裁剪压缩质量 默认90 int
                 .minimumCompressSize(100)// 小于100kb的图片不压缩
                 .synOrAsy(true)//同步true或异步false 压缩 默认同步
@@ -206,18 +231,47 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     private final ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
         @Override
         public void onActivityResult(Activity activity, int requestCode, int resultCode, final Intent data) {
-            if(requestCode == PictureConfig.CHOOSE_REQUEST){
+            if (requestCode == PictureConfig.CHOOSE_REQUEST) {
                 new Thread(new Runnable() {
                     @Override
                     public void run() {
                         onGetResult(data);
                     }
                 }).run();
+            } else if (requestCode == PictureConfig.REQUEST_CAMERA) {
+                onGetVideoResult(data);
             }
         }
     };
 
-    private void onGetResult(Intent data){
+    private void onGetVideoResult(Intent data) {
+        List<LocalMedia> mVideoSelectList = PictureSelector.obtainMultipleResult(data);
+        boolean isRecordSelectedV = cameraOptions.getBoolean("isRecordSelected");
+        if (!mVideoSelectList.isEmpty() && isRecordSelectedV) {
+            selectList = mVideoSelectList;
+        }
+        WritableArray videoList = new WritableNativeArray();
+        for (LocalMedia media : mVideoSelectList) {
+            if (TextUtils.isEmpty(media.getPath())){
+                continue;
+            }
+            WritableMap avideo = new WritableNativeMap();
+            avideo.putString("size", new File(media.getPath()).length() + "");
+            avideo.putString("duration", media.getDuration() + "");
+            avideo.putString("fileName", new File(media.getPath()).getName());
+            avideo.putString("uri", "file://" + media.getPath());
+            avideo.putString("type", "video");
+            videoList.pushMap(avideo);
+        }
+
+        if (mVideoSelectList.isEmpty()) {
+            invokeError();
+        } else {
+            invokeSuccessWithResult(videoList);
+        }
+    }
+
+    private void onGetResult(Intent data) {
         List<LocalMedia> tmpSelectList = PictureSelector.obtainMultipleResult(data);
         boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
         if (!tmpSelectList.isEmpty() && isRecordSelected) {
@@ -239,11 +293,9 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 aImage.putDouble("height", options.outHeight);
                 aImage.putString("type", "image");
                 aImage.putString("uri", "file://" + media.getPath());
-
                 //decode to bitmap
                 Bitmap bitmap = BitmapFactory.decodeFile(media.getPath());
                 aImage.putInt("size", bitmap.getByteCount());
-
                 //base64 encode
                 if (enableBase64) {
                     String encodeString = getBase64EncodeString(bitmap);
@@ -284,6 +336,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     /**
      * 获取图片base64编码字符串
+     *
      * @param bitmap Bitmap对象
      * @return base64字符串
      */
@@ -292,13 +345,68 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
         byte[] bytes = baos.toByteArray();
 
-        byte[] encode = Base64.encode(bytes,Base64.DEFAULT);
+        byte[] encode = Base64.encode(bytes, Base64.DEFAULT);
         String encodeString = new String(encode);
         return "data:image/jpeg;base64," + encodeString;
     }
 
     /**
+     * 拍摄视频
+     */
+    private void openVideo() {
+        int quality = this.cameraOptions.getInt("quality");
+        int MaxSecond = this.cameraOptions.getInt("MaxSecond");
+        int MinSecond = this.cameraOptions.getInt("MinSecond");
+        int recordVideoSecond = this.cameraOptions.getInt("recordVideoSecond");
+        int imageCount = this.cameraOptions.getInt("imageCount");
+        Activity currentActivity = getCurrentActivity();
+        PictureSelector.create(currentActivity)
+                .openCamera(PictureMimeType.ofVideo())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
+                .selectionMedia(selectList) // 当前已选中的图片 List
+                .openClickSound(false)// 是否开启点击声音 true or false
+                .maxSelectNum(imageCount)// 最大图片选择数量 int
+                .minSelectNum(0)// 最小选择数量 int
+                .imageSpanCount(4)// 每行显示个数 int
+                .selectionMode(PictureConfig.MULTIPLE)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
+                .previewVideo(true)// 是否可预览视频 true or false
+                .videoQuality(quality)// 视频录制质量 0 or 1 int
+                .videoMaxSecond(MaxSecond)// 显示多少秒以内的视频or音频也可适用 int
+                .videoMinSecond(MinSecond)// 显示多少秒以内的视频or音频也可适用 int
+                .recordVideoSecond(recordVideoSecond)//视频秒数录制 默认60s int
+                .forResult(PictureConfig.REQUEST_CAMERA);//结果回调onActivityResult code
+    }
+
+    /**
+     * 选择视频
+     */
+    private void openVideoPicker() {
+        int quality = this.cameraOptions.getInt("quality");
+        int MaxSecond = this.cameraOptions.getInt("MaxSecond");
+        int MinSecond = this.cameraOptions.getInt("MinSecond");
+        int recordVideoSecond = this.cameraOptions.getInt("recordVideoSecond");
+        int videoCount = this.cameraOptions.getInt("videoCount");
+        Activity currentActivity = getCurrentActivity();
+        PictureSelector.create(currentActivity)
+                .openGallery(PictureMimeType.ofVideo())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
+                .selectionMedia(selectList) // 当前已选中的视频 List
+                .openClickSound(false)// 是否开启点击声音 true or false
+                .isCamera(false)// 是否显示拍照按钮 true or false
+                .maxSelectNum(videoCount)// 最大视频选择数量 int
+                .minSelectNum(1)// 最小选择数量 int
+                .imageSpanCount(4)// 每行显示个数 int
+                .selectionMode(PictureConfig.MULTIPLE)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
+                // TODO: 2019/2/14 需要根据用户设置来决定是否展示video
+                .previewVideo(true)// 是否可预览视频 true or false
+                .videoQuality(quality)// 视频录制质量 0 or 1 int
+                .videoMaxSecond(MaxSecond)// 显示多少秒以内的视频or音频也可适用 int
+                .videoMinSecond(MinSecond)// 显示多少秒以内的视频or音频也可适用 int
+                .recordVideoSecond(recordVideoSecond)//视频秒数录制 默认60s int
+                .forResult(PictureConfig.REQUEST_CAMERA);//结果回调onActivityResult code
+    }
+
+    /**
      * 选择照片成功时触发
+     *
      * @param imageList 图片数组
      */
     private void invokeSuccessWithResult(WritableArray imageList) {

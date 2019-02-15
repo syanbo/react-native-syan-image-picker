@@ -134,8 +134,12 @@ export default {
             allowPickingImage: false,
             allowPickingMultipleVideo: true,
             videoMaximumDuration: 20,
+            MaxSecond: 60,
+            MinSecond: 0,
+            recordVideoSecond: 60,
+            videoCount: 1,
             ...options
         };
-        RNSyanImagePicker.openVideoPicker(optionObj, callback)
+        return RNSyanImagePicker.openVideoPicker(optionObj, callback)
     }
 };
