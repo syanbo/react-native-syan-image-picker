@@ -95,9 +95,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
 }
 
 - (void)openTZImagePicker:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback {
-    // 照片最大可选张数
     NSInteger imageCount = [options sy_integerForKey:@"imageCount"];
-    // 显示内部拍照按钮
     BOOL isCamera        = [options sy_boolForKey:@"isCamera"];
     BOOL isCrop          = [options sy_boolForKey:@"isCrop"];
     BOOL allowPickingGif = [options sy_boolForKey:@"allowPickingGif"];
@@ -158,8 +156,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
                 NSMutableDictionary *video = [NSMutableDictionary dictionary];
                 video[@"uri"] = outputPath;
                 video[@"fileName"] = [asset valueForKey:@"filename"];
-                PHAssetResource *resource = [[PHAssetResource assetResourcesForAsset:asset] firstObject];
-                long long size = [[resource valueForKey:@"fileSize"] longLongValue];
+                NSInteger size = [[NSFileManager defaultManager] attributesOfItemAtPath:outputPath error:nil].fileSize;
                 video[@"size"] = @(size);
                 if (asset.mediaType == PHAssetMediaTypeVideo) {
                     video[@"type"] = @"video";
@@ -194,8 +191,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
             NSMutableDictionary *video = [NSMutableDictionary dictionary];
             video[@"uri"] = outputPath;
             video[@"fileName"] = [asset valueForKey:@"filename"];
-            PHAssetResource *resource = [[PHAssetResource assetResourcesForAsset:asset] firstObject];
-            long long size = [[resource valueForKey:@"fileSize"] longLongValue];
+            NSInteger size = [[NSFileManager defaultManager] attributesOfItemAtPath:outputPath error:nil].fileSize;
             video[@"size"] = @(size);
             if (asset.mediaType == PHAssetMediaTypeVideo) {
                 video[@"type"] = @"video";
