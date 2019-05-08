@@ -117,6 +117,33 @@ android {
     ...
 }
 ```
+
+##### 4、拍照前动态获取权限
+```js
+requestPermission = async () => {
+        try {
+            const granted = await PermissionsAndroid.request(
+                PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+                {
+                    title: '申请读写手机存储权限',
+                    message:
+                        '一个很牛逼的应用想借用你的摄像头，' +
+                        '然后你就可以拍出酷炫的皂片啦。',
+                    buttonNeutral: '等会再问我',
+                    buttonNegative: '不行',
+                    buttonPositive: '好吧',
+                },
+            );
+            if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+                console.log('现在你获得摄像头权限了');
+            } else {
+                console.log('用户并不给你');
+            }
+        } catch (err) {
+            console.warn(err);
+        }
+    };
+```
  
 ### 注意安装运行报错
 1. 检查自动 link 是否成功 
@@ -149,33 +176,6 @@ android {
   	```gradle
       compile project(':react-native-syan-image-picker')
   	```
-  	
-4. 拍照前动态获取权限
-```js
-requestPermission = async () => {
-        try {
-            const granted = await PermissionsAndroid.request(
-                PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-                {
-                    title: '申请读写手机存储权限',
-                    message:
-                        '一个很牛逼的应用想借用你的摄像头，' +
-                        '然后你就可以拍出酷炫的皂片啦。',
-                    buttonNeutral: '等会再问我',
-                    buttonNegative: '不行',
-                    buttonPositive: '好吧',
-                },
-            );
-            if (granted === PermissionsAndroid.RESULTS.GRANTED) {
-                console.log('现在你获得摄像头权限了');
-            } else {
-                console.log('用户并不给你');
-            }
-        } catch (err) {
-            console.warn(err);
-        }
-    };
-```
 
 ## 运行示例
 
