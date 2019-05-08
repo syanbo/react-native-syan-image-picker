@@ -217,10 +217,6 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .showCropFrame(showCropFrame)// 是否显示裁剪矩形边框 圆形裁剪时建议设为false   true or false
                 .showCropGrid(showCropGrid)// 是否显示裁剪矩形网格 圆形裁剪时建议设为false    true or false
                 .openClickSound(false)// 是否开启点击声音 true or false
-                .videoQuality(1)// 视频录制质量 0 or 1 int
-                .videoMaxSecond(15)// 显示多少秒以内的视频or音频也可适用 int
-                .videoMinSecond(10)// 显示多少秒以内的视频or音频也可适用 int
-                .recordVideoSecond(60)//视频秒数录制 默认60s int
                 .cropCompressQuality(quality)// 裁剪压缩质量 默认90 int
                 .minimumCompressSize(minimumCompressSize)// 小于100kb的图片不压缩
                 .synOrAsy(true)//同步true或异步false 压缩 默认同步
@@ -285,23 +281,28 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     private final ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
         @Override
         public void onActivityResult(Activity activity, int requestCode, int resultCode, final Intent data) {
-            if (requestCode == PictureConfig.CHOOSE_REQUEST) {
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        onGetResult(data);
-                    }
-                }).run();
-            } else if (requestCode == PictureConfig.REQUEST_CAMERA) {
-                onGetVideoResult(data);
+            if (resultCode == -1) {
+                if (requestCode == PictureConfig.CHOOSE_REQUEST) {
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            onGetResult(data);
+                        }
+                    }).run();
+                } else if (requestCode == PictureConfig.REQUEST_CAMERA) {
+                    onGetVideoResult(data);
+                }
+            } else {
+                invokeError(resultCode);
             }
+
         }
     };
 
     private void onGetVideoResult(Intent data) {
         List<LocalMedia> mVideoSelectList = PictureSelector.obtainMultipleResult(data);
-        boolean isRecordSelectedV = cameraOptions.getBoolean("isRecordSelected");
-        if (!mVideoSelectList.isEmpty() && isRecordSelectedV) {
+        boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
+        if (!mVideoSelectList.isEmpty() && isRecordSelected) {
             selectList = mVideoSelectList;
         }
         WritableArray videoList = new WritableNativeArray();
@@ -309,20 +310,16 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             if (TextUtils.isEmpty(media.getPath())){
                 continue;
             }
-            WritableMap avideo = new WritableNativeMap();
-            avideo.putString("size", new File(media.getPath()).length() + "");
-            avideo.putString("duration", media.getDuration() + "");
-            avideo.putString("fileName", new File(media.getPath()).getName());
-            avideo.putString("uri", "file://" + media.getPath());
-            avideo.putString("type", "video");
-            videoList.pushMap(avideo);
+            WritableMap videoMap = new WritableNativeMap();
+            videoMap.putString("size", new File(media.getPath()).length() + "");
+            videoMap.putString("duration", media.getDuration() + "");
+            videoMap.putString("fileName", new File(media.getPath()).getName());
+            videoMap.putString("uri", "file://" + media.getPath());
+            videoMap.putString("type", "video");
+            videoList.pushMap(videoMap);
         }
 
-        if (mVideoSelectList.isEmpty()) {
-            invokeError();
-        } else {
-            invokeSuccessWithResult(videoList);
-        }
+        invokeSuccessWithResult(videoList);
     }
 
     private void onGetResult(Intent data) {
@@ -338,11 +335,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         for (LocalMedia media : tmpSelectList) {
             imageList.pushMap(getImageResult(media, enableBase64));
         }
-        if (tmpSelectList.isEmpty()) {
-            invokeError();
-        } else {
-            invokeSuccessWithResult(imageList);
-        }
+        invokeSuccessWithResult(imageList);
     }
 
     private WritableMap getImageResult(LocalMedia media, Boolean enableBase64) {
@@ -419,12 +412,16 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     /**
      * 取消选择时触发
      */
-    private void invokeError() {
+    private void invokeError(int resultCode) {
+        String message = "取消";
+        if (resultCode != 0) {
+            message = String.valueOf(resultCode);
+        }
         if (this.mPickerCallback != null) {
-            this.mPickerCallback.invoke("取消");
+            this.mPickerCallback.invoke(message);
             this.mPickerCallback = null;
         } else if (this.mPickerPromise != null) {
-            this.mPickerPromise.reject(SY_SELECT_IMAGE_FAILED_CODE, "取消");
+            this.mPickerPromise.reject(SY_SELECT_IMAGE_FAILED_CODE, message);
         }
     }
 
