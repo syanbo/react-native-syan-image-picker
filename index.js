@@ -104,6 +104,14 @@ export default {
         RNSyanImagePicker.openCamera(optionObj, callback)
     },
 
+    asyncOpenCamera(options) {
+        const optionObj = {
+            ...defaultOptions,
+            ...options,
+        };
+        return RNSyanImagePicker.asyncOpenCamera(optionObj);
+    },
+
     /**
      * 清除缓存
      */
