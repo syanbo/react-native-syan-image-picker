@@ -284,7 +284,27 @@ STImagePicke.removeAllPhoto()
 ```
 
 ### 调用相机
-相机功能调用 `openCamera` 方法，一样支持 Callback 和 Promise 两种形式，结果参数也保持一致。
+相机功能调用方法，一样支持 Callback 和 Promise 两种形式，结果参数也保持一致。
+```javascript
+ //Callback方式
+SyanImagePicker.openCamera(options, (err, photos) => {
+  if (err) {
+    // 取消选择
+    return;
+  }
+  // 选择成功，渲染图片
+  // ...
+})
+
+//Promise方式
+ SYImagePicker.asyncOpenCamera(options)
+ .then(()=>{
+   ...
+ })
+ .catch(()=>{
+   ...
+ })
+```
 
 ### 删除缓存
 ```javascript
