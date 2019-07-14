@@ -200,6 +200,11 @@ showCropGrid         | bool | 是      | false  | 是否隐藏裁剪区域网格
 quality         | int | 是      | 90  | 压缩质量(安卓无效，固定鲁班压缩)
 minimumCompressSize | int | 是 | 100 | 小于100kb的图片不压缩（Android）
 enableBase64        | bool | 是      | false  | 是否返回base64编码，默认不返回
+freeStyleCropEnabled        | bool | 是      | false  | 裁剪框是否可拖拽（Android）
+rotateEnabled        | bool | 是      | true  | 裁剪是否可旋转图片（Android）
+scaleEnabled        | bool | 是      | true  | 裁剪是否可放大缩小图片（Android）
+
+
 
 ## 返回结果说明
 以 `Callback` 形式调用时，返回的第一个参数为错误对象，第二个才是图片数组：
