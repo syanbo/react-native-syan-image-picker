@@ -280,10 +280,13 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         NSMutableArray *selectedPhotos = [NSMutableArray array];
         [weakPicker showProgressHUD];
         if (imageCount == 1 && isCrop) {
-            [selectedPhotos addObject:[self handleImageData:photos[0] quality:quality]];
+            //增加png保留透明度功能
+            [selectedPhotos addObject:[self handleImageData:photos[0] info:infos[0] quality:quality]];
         } else {
             [infos enumerateObjectsUsingBlock:^(NSDictionary * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-                [selectedPhotos addObject:[self handleImageData:photos[idx] quality:quality]];
+                //增加png保留透明度功能
+                [selectedPhotos addObject:[self handleImageData:photos[idx] info:infos[idx] quality:quality]];
+                
             }];
         }
         [self invokeSuccessWithResult:selectedPhotos];
@@ -412,6 +415,34 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     if (buttonIndex == 1) { // 去设置界面，开启相机访问权限
         [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString]];
     }
+}
+
+/**
+ 保留png透明度的回调方法
+ 通过文件后缀判断是否是png
+ */
+- (NSDictionary *)handleImageData:(UIImage *) image info:(NSDictionary *)info quality:(NSInteger)quality {
+    NSMutableDictionary *photo = [NSMutableDictionary dictionary];
+    
+    NSString *filePath = [NSString stringWithFormat:@"%@",info[@"PHImageFileURLKey"]];
+    NSRange range = [[filePath lowercaseString] rangeOfString:@".png"];
+    BOOL isPng = range.length > 0 ? YES : NO;
+    NSLog(@"++%@",isPng?@"is png":@"not png");
+    // 建议增加配置项选择是否放弃png透明度 提高压缩率
+    if(isPng == NO){
+        return [self handleImageData:image quality:quality];
+    }
+    NSData *imageData = UIImagePNGRepresentation(image);
+    //无需压缩 所以不需要保存临时文件直接返回原图地址  ？？？？？
+    photo[@"uri"] = filePath;
+    photo[@"width"] = @(image.size.width);
+    photo[@"height"] = @(image.size.height);
+    photo[@"size"] = @(imageData.length);
+    
+    if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
+        photo[@"base64"] = isPng?[NSString stringWithFormat:@"data:image/png;base64,%@", [imageData base64EncodedStringWithOptions:0]]:[NSString stringWithFormat:@"data:image/jpeg;base64,%@", [imageData base64EncodedStringWithOptions:0]];
+    }
+    return photo;
 }
 
 - (NSDictionary *)handleImageData:(UIImage *) image quality:(NSInteger)quality {
