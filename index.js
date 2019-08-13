@@ -21,6 +21,11 @@ const defaultOptions = {
     circleCropRadius: ~~(width / 4), // 圆形裁剪半径，默认屏幕宽度一半
     showCropFrame: true,       // 是否显示裁剪区域，默认true
     showCropGrid: false,       // 是否隐藏裁剪区域网格，默认false
+    freeStyleCropEnabled: false, // 裁剪框是否可拖拽
+    rotateEnabled: true,       // 裁剪是否可旋转图片
+    scaleEnabled: true,        // 裁剪是否可放大缩小图片
+    compress: true,
+    minimumCompressSize: 100,  // 小于100kb的图片不压缩
     quality: 90,               // 压缩质量
     enableBase64: false,       // 是否返回base64编码，默认不返回
     allowPickingOriginalPhoto: false,
@@ -100,6 +105,14 @@ export default {
             ...options
         };
         RNSyanImagePicker.openCamera(optionObj, callback)
+    },
+
+    asyncOpenCamera(options) {
+        const optionObj = {
+            ...defaultOptions,
+            ...options,
+        };
+        return RNSyanImagePicker.asyncOpenCamera(optionObj);
     },
 
     /**
