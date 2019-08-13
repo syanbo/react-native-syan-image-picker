@@ -55,7 +55,7 @@ RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options
 
 RCT_REMAP_METHOD(asyncShowImagePicker,
                  options:(NSDictionary *)options
-                 resolver:(RCTPromiseResolveBlock)resolve
+                 showImagePickerResolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject) {
 	self.cameraOptions = options;
     self.resolveBlock = resolve;
@@ -70,6 +70,17 @@ RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSender
     self.resolveBlock = nil;
     self.rejectBlock = nil;
     [self takePhoto];
+}
+
+RCT_REMAP_METHOD(asyncOpenCamera,
+                 options:(NSDictionary *)options
+                 openCameraResolver:(RCTPromiseResolveBlock)resolve
+                 rejecter:(RCTPromiseRejectBlock)reject) {
+  self.cameraOptions = options;
+  self.resolveBlock = resolve;
+  self.rejectBlock = reject;
+  self.callback = nil;
+  [self takePhoto];
 }
 
 RCT_EXPORT_METHOD(deleteCache) {

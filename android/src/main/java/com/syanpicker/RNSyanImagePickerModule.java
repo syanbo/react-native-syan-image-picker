@@ -3,7 +3,6 @@ package com.syanpicker;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.text.TextUtils;
 import android.util.Base64;
@@ -29,6 +28,10 @@ import com.luck.picture.lib.tools.PictureFileUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -81,6 +84,14 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         this.openCamera();
     }
 
+    @ReactMethod
+    public void asyncOpenCamera(ReadableMap options, Promise promise) {
+        this.cameraOptions = options;
+        this.mPickerCallback = null;
+        this.mPickerPromise = promise;
+        this.openCamera();
+    }
+
     /**
      * 缓存清除
      * 包括裁剪和压缩后的缓存，要在上传成功后调用，注意：需要系统sd卡权限
@@ -93,8 +104,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     /**
      * 移除选中的图片
-     *
-     * @param {int} index 要移除的图片下标
+     * index 要移除的图片下标
      */
     @ReactMethod
     public void removePhotoAtIndex(int index) {
@@ -143,6 +153,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         boolean showCropCircle = this.cameraOptions.getBoolean("showCropCircle");
         boolean showCropFrame = this.cameraOptions.getBoolean("showCropFrame");
         boolean showCropGrid = this.cameraOptions.getBoolean("showCropGrid");
+        boolean compress = this.cameraOptions.getBoolean("compress");
+        boolean freeStyleCropEnabled = this.cameraOptions.getBoolean("freeStyleCropEnabled");
+        boolean rotateEnabled = this.cameraOptions.getBoolean("rotateEnabled");
+        boolean scaleEnabled = this.cameraOptions.getBoolean("scaleEnabled");
+        int minimumCompressSize = this.cameraOptions.getInt("minimumCompressSize");
         int quality = this.cameraOptions.getInt("quality");
 
         int modeValue;
@@ -159,7 +174,6 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .imageSpanCount(4)// 每行显示个数 int
                 .selectionMode(modeValue)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
                 .previewImage(true)// 是否可预览图片 true or false
-                // TODO: 2019/2/14 需要根据用户设置来决定是否展示video
                 .previewVideo(false)// 是否可预览视频 true or false
                 .enablePreviewAudio(false) // 是否可播放音频 true or false
                 .isCamera(isCamera)// 是否显示拍照按钮 true or false
@@ -167,26 +181,22 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .isZoomAnim(true)// 图片列表点击 缩放效果 默认true
                 .sizeMultiplier(0.5f)// glide 加载图片大小 0~1之间 如设置 .glideOverride()无效
                 .enableCrop(isCrop)// 是否裁剪 true or false
-                .compress(true)// 是否压缩 true or false
+                .compress(compress)// 是否压缩 true or false
                 .glideOverride(160, 160)// int glide 加载宽高，越小图片列表越流畅，但会影响列表图片浏览的清晰度
                 .withAspectRatio(CropW, CropH)// int 裁剪比例 如16:9 3:2 3:4 1:1 可自定义
                 .hideBottomControls(isCrop)// 是否显示uCrop工具栏，默认不显示 true or false
                 .isGif(isGif)// 是否显示gif图片 true or false
-                .freeStyleCropEnabled(true)// 裁剪框是否可拖拽 true or false
+                .freeStyleCropEnabled(freeStyleCropEnabled)// 裁剪框是否可拖拽 true or false
                 .circleDimmedLayer(showCropCircle)// 是否圆形裁剪 true or false
                 .showCropFrame(showCropFrame)// 是否显示裁剪矩形边框 圆形裁剪时建议设为false   true or false
                 .showCropGrid(showCropGrid)// 是否显示裁剪矩形网格 圆形裁剪时建议设为false    true or false
                 .openClickSound(false)// 是否开启点击声音 true or false
                 .cropCompressQuality(quality)// 裁剪压缩质量 默认90 int
-                .minimumCompressSize(100)// 小于100kb的图片不压缩
+                .minimumCompressSize(minimumCompressSize)// 小于100kb的图片不压缩
                 .synOrAsy(true)//同步true或异步false 压缩 默认同步
-                .rotateEnabled(true) // 裁剪是否可旋转图片 true or false
-                .scaleEnabled(true)// 裁剪是否可放大缩小图片 true or false
+                .rotateEnabled(rotateEnabled) // 裁剪是否可旋转图片 true or false
+                .scaleEnabled(scaleEnabled)// 裁剪是否可放大缩小图片 true or false
                 .selectionMedia(selectList) // 当前已选中的图片 List
-                //.videoQuality(0)// 视频录制质量 0 or 1 int
-                //.videoMaxSecond(15)// 显示多少秒以内的视频or音频也可适用 int
-                //.videoMinSecond(10)// 显示多少秒以内的视频or音频也可适用 int
-                //.recordVideoSecond(60)//视频秒数录制 默认60s int
                 .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
     }
 
@@ -200,6 +210,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         boolean showCropCircle = this.cameraOptions.getBoolean("showCropCircle");
         boolean showCropFrame = this.cameraOptions.getBoolean("showCropFrame");
         boolean showCropGrid = this.cameraOptions.getBoolean("showCropGrid");
+        boolean compress = this.cameraOptions.getBoolean("compress");
+        boolean freeStyleCropEnabled = this.cameraOptions.getBoolean("freeStyleCropEnabled");
+        boolean rotateEnabled = this.cameraOptions.getBoolean("rotateEnabled");
+        boolean scaleEnabled = this.cameraOptions.getBoolean("scaleEnabled");
+        int minimumCompressSize = this.cameraOptions.getInt("minimumCompressSize");
         int quality = this.cameraOptions.getInt("quality");
 
         Activity currentActivity = getCurrentActivity();
@@ -207,147 +222,21 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .openCamera(PictureMimeType.ofImage())
                 .imageFormat(PictureMimeType.PNG)// 拍照保存图片格式后缀,默认jpeg
                 .enableCrop(isCrop)// 是否裁剪 true or false
-                .compress(true)// 是否压缩 true or false
+                .compress(compress)// 是否压缩 true or false
                 .glideOverride(160, 160)// int glide 加载宽高，越小图片列表越流畅，但会影响列表图片浏览的清晰度
                 .withAspectRatio(CropW, CropH)// int 裁剪比例 如16:9 3:2 3:4 1:1 可自定义
                 .hideBottomControls(isCrop)// 是否显示uCrop工具栏，默认不显示 true or false
-                .freeStyleCropEnabled(true)// 裁剪框是否可拖拽 true or false
+                .freeStyleCropEnabled(freeStyleCropEnabled)// 裁剪框是否可拖拽 true or false
                 .circleDimmedLayer(showCropCircle)// 是否圆形裁剪 true or false
                 .showCropFrame(showCropFrame)// 是否显示裁剪矩形边框 圆形裁剪时建议设为false   true or false
                 .showCropGrid(showCropGrid)// 是否显示裁剪矩形网格 圆形裁剪时建议设为false    true or false
                 .openClickSound(false)// 是否开启点击声音 true or false
-                .videoQuality(1)// 视频录制质量 0 or 1 int
-                .videoMaxSecond(15)// 显示多少秒以内的视频or音频也可适用 int
-                .videoMinSecond(10)// 显示多少秒以内的视频or音频也可适用 int
-                .recordVideoSecond(60)//视频秒数录制 默认60s int
                 .cropCompressQuality(quality)// 裁剪压缩质量 默认90 int
-                .minimumCompressSize(100)// 小于100kb的图片不压缩
+                .minimumCompressSize(minimumCompressSize)// 小于100kb的图片不压缩
                 .synOrAsy(true)//同步true或异步false 压缩 默认同步
-                .rotateEnabled(true) // 裁剪是否可旋转图片 true or false
-                .scaleEnabled(true)// 裁剪是否可放大缩小图片 true or false
+                .rotateEnabled(rotateEnabled) // 裁剪是否可旋转图片 true or false
+                .scaleEnabled(scaleEnabled)// 裁剪是否可放大缩小图片 true or false
                 .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
-    }
-
-    private final ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
-        @Override
-        public void onActivityResult(Activity activity, int requestCode, int resultCode, final Intent data) {
-            if (requestCode == PictureConfig.CHOOSE_REQUEST) {
-                new Thread(new Runnable() {
-                    @Override
-                    public void run() {
-                        onGetResult(data);
-                    }
-                }).run();
-            } else if (requestCode == PictureConfig.REQUEST_CAMERA) {
-                onGetVideoResult(data);
-            }
-        }
-    };
-
-    private void onGetVideoResult(Intent data) {
-        List<LocalMedia> mVideoSelectList = PictureSelector.obtainMultipleResult(data);
-        boolean isRecordSelectedV = cameraOptions.getBoolean("isRecordSelected");
-        if (!mVideoSelectList.isEmpty() && isRecordSelectedV) {
-            selectList = mVideoSelectList;
-        }
-        WritableArray videoList = new WritableNativeArray();
-        for (LocalMedia media : mVideoSelectList) {
-            if (TextUtils.isEmpty(media.getPath())){
-                continue;
-            }
-            WritableMap avideo = new WritableNativeMap();
-            avideo.putString("size", new File(media.getPath()).length() + "");
-            avideo.putString("duration", media.getDuration() + "");
-            avideo.putString("fileName", new File(media.getPath()).getName());
-            avideo.putString("uri", "file://" + media.getPath());
-            avideo.putString("type", "video");
-            videoList.pushMap(avideo);
-        }
-
-        if (mVideoSelectList.isEmpty()) {
-            invokeError();
-        } else {
-            invokeSuccessWithResult(videoList);
-        }
-    }
-
-    private void onGetResult(Intent data) {
-        List<LocalMedia> tmpSelectList = PictureSelector.obtainMultipleResult(data);
-        boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
-        if (!tmpSelectList.isEmpty() && isRecordSelected) {
-            selectList = tmpSelectList;
-        }
-
-        WritableArray imageList = new WritableNativeArray();
-        boolean enableBase64 = cameraOptions.getBoolean("enableBase64");
-
-        for (LocalMedia media : tmpSelectList) {
-            WritableMap aImage = new WritableNativeMap();
-
-            BitmapFactory.Options options = new BitmapFactory.Options();
-
-            options.inJustDecodeBounds = true;
-            if (!media.isCompressed()) {
-                BitmapFactory.decodeFile(media.getPath(), options);
-                aImage.putDouble("width", options.outWidth);
-                aImage.putDouble("height", options.outHeight);
-                aImage.putString("type", "image");
-                aImage.putString("uri", "file://" + media.getPath());
-                //decode to bitmap
-                Bitmap bitmap = BitmapFactory.decodeFile(media.getPath());
-                aImage.putInt("size", bitmap.getByteCount());
-                //base64 encode
-                if (enableBase64) {
-                    String encodeString = getBase64EncodeString(bitmap);
-                    aImage.putString("base64", encodeString);
-                }
-            } else {
-                // 压缩过，取 media.getCompressPath();
-                BitmapFactory.decodeFile(media.getCompressPath(), options);
-                aImage.putDouble("width", options.outWidth);
-                aImage.putDouble("height", options.outHeight);
-                aImage.putString("type", "image");
-                aImage.putString("uri", "file://" + media.getCompressPath());
-
-                //decode to bitmap
-                Bitmap bitmap = BitmapFactory.decodeFile(media.getCompressPath());
-                aImage.putInt("size", bitmap.getByteCount());
-
-                //base64 encode
-                if (enableBase64) {
-                    String encodeString = getBase64EncodeString(bitmap);
-                    aImage.putString("base64", encodeString);
-                }
-            }
-
-            if (media.isCut()) {
-                aImage.putString("original_uri", "file://" + media.getCutPath());
-            } else {
-                aImage.putString("original_uri", "file://" + media.getPath());
-            }
-            imageList.pushMap(aImage);
-        }
-        if (tmpSelectList.isEmpty()) {
-            invokeError();
-        } else {
-            invokeSuccessWithResult(imageList);
-        }
-    }
-
-    /**
-     * 获取图片base64编码字符串
-     *
-     * @param bitmap Bitmap对象
-     * @return base64字符串
-     */
-    private String getBase64EncodeString(Bitmap bitmap) {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, baos);
-        byte[] bytes = baos.toByteArray();
-
-        byte[] encode = Base64.encode(bytes, Base64.DEFAULT);
-        String encodeString = new String(encode);
-        return "data:image/jpeg;base64," + encodeString;
     }
 
     /**
@@ -395,13 +284,129 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .minSelectNum(1)// 最小选择数量 int
                 .imageSpanCount(4)// 每行显示个数 int
                 .selectionMode(PictureConfig.MULTIPLE)// 多选 or 单选 PictureConfig.MULTIPLE or PictureConfig.SINGLE
-                // TODO: 2019/2/14 需要根据用户设置来决定是否展示video
                 .previewVideo(true)// 是否可预览视频 true or false
                 .videoQuality(quality)// 视频录制质量 0 or 1 int
                 .videoMaxSecond(MaxSecond)// 显示多少秒以内的视频or音频也可适用 int
                 .videoMinSecond(MinSecond)// 显示多少秒以内的视频or音频也可适用 int
                 .recordVideoSecond(recordVideoSecond)//视频秒数录制 默认60s int
                 .forResult(PictureConfig.REQUEST_CAMERA);//结果回调onActivityResult code
+    }
+
+    private final ActivityEventListener mActivityEventListener = new BaseActivityEventListener() {
+        @Override
+        public void onActivityResult(Activity activity, int requestCode, int resultCode, final Intent data) {
+            if (resultCode == -1) {
+                if (requestCode == PictureConfig.CHOOSE_REQUEST) {
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            onGetResult(data);
+                        }
+                    }).run();
+                } else if (requestCode == PictureConfig.REQUEST_CAMERA) {
+                    onGetVideoResult(data);
+                }
+            } else {
+                invokeError(resultCode);
+            }
+
+        }
+    };
+
+    private void onGetVideoResult(Intent data) {
+        List<LocalMedia> mVideoSelectList = PictureSelector.obtainMultipleResult(data);
+        boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
+        if (!mVideoSelectList.isEmpty() && isRecordSelected) {
+            selectList = mVideoSelectList;
+        }
+        WritableArray videoList = new WritableNativeArray();
+        for (LocalMedia media : mVideoSelectList) {
+            if (TextUtils.isEmpty(media.getPath())){
+                continue;
+            }
+            WritableMap videoMap = new WritableNativeMap();
+            videoMap.putString("size", new File(media.getPath()).length() + "");
+            videoMap.putString("duration", media.getDuration() + "");
+            videoMap.putString("fileName", new File(media.getPath()).getName());
+            videoMap.putString("uri", "file://" + media.getPath());
+            videoMap.putString("type", "video");
+            videoList.pushMap(videoMap);
+        }
+
+        invokeSuccessWithResult(videoList);
+    }
+
+    private void onGetResult(Intent data) {
+        List<LocalMedia> tmpSelectList = PictureSelector.obtainMultipleResult(data);
+        boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
+        if (!tmpSelectList.isEmpty() && isRecordSelected) {
+            selectList = tmpSelectList;
+        }
+
+        WritableArray imageList = new WritableNativeArray();
+        boolean enableBase64 = cameraOptions.getBoolean("enableBase64");
+
+        for (LocalMedia media : tmpSelectList) {
+            imageList.pushMap(getImageResult(media, enableBase64));
+        }
+        invokeSuccessWithResult(imageList);
+    }
+
+    private WritableMap getImageResult(LocalMedia media, Boolean enableBase64) {
+        WritableMap imageMap = new WritableNativeMap();
+        String path = media.getPath();
+        if (media.isCompressed() || media.isCut()){
+            path = media.getCompressPath();
+        }
+        BitmapFactory.Options options = new BitmapFactory.Options();
+        options.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(path, options);
+        imageMap.putDouble("width", options.outWidth);
+        imageMap.putDouble("height", options.outHeight);
+        imageMap.putString("type", "image");
+        imageMap.putString("uri", "file://" + path);
+        imageMap.putInt("size", (int) new File(path).length());
+
+        if (enableBase64) {
+            String encodeString = getBase64StringFromFile(path);
+            imageMap.putString("base64", encodeString);
+        }
+        if (media.isCut()) {
+            imageMap.putString("original_uri", "file://" + media.getCutPath());
+        } else {
+            imageMap.putString("original_uri", "file://" + media.getPath());
+        }
+        return imageMap;
+    }
+
+    /**
+     * 获取图片base64编码字符串
+     *
+     * @param absoluteFilePath 文件路径
+     * @return base64字符串
+     */
+    private String getBase64StringFromFile(String absoluteFilePath) {
+        InputStream inputStream;
+        try {
+            inputStream = new FileInputStream(new File(absoluteFilePath));
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            return null;
+        }
+
+        byte[] bytes;
+        byte[] buffer = new byte[8192];
+        int bytesRead;
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try {
+            while ((bytesRead = inputStream.read(buffer)) != -1) {
+                output.write(buffer, 0, bytesRead);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        bytes = output.toByteArray();
+        return "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP);
     }
 
     /**
@@ -421,12 +426,17 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     /**
      * 取消选择时触发
      */
-    private void invokeError() {
+    private void invokeError(int resultCode) {
+        String message = "取消";
+        if (resultCode != 0) {
+            message = String.valueOf(resultCode);
+        }
         if (this.mPickerCallback != null) {
-            this.mPickerCallback.invoke("取消");
+            this.mPickerCallback.invoke(message);
             this.mPickerCallback = null;
         } else if (this.mPickerPromise != null) {
-            this.mPickerPromise.reject(SY_SELECT_IMAGE_FAILED_CODE, "取消");
+            this.mPickerPromise.reject(SY_SELECT_IMAGE_FAILED_CODE, message);
         }
     }
+
 }
