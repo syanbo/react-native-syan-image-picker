@@ -158,7 +158,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         }
     }
 
-    __block TZImagePickerController *weakPicker = imagePickerVc;
+    __weak TZImagePickerController *weakPicker = imagePickerVc;
     [imagePickerVc setDidFinishPickingPhotosWithInfosHandle:^(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos) {
         NSMutableArray *selectArray = [NSMutableArray array];
         for (NSInteger i = 0; i < assets.count; i++) {
@@ -226,7 +226,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         }];
     }];
 
-    __block TZImagePickerController *weakPickerVc = imagePickerVc;
+    __weak TZImagePickerController *weakPickerVc = imagePickerVc;
     [imagePickerVc setImagePickerControllerDidCancelHandle:^{
         callback(@[@"取消"]);
         [weakPicker dismissViewControllerAnimated:YES completion:nil];
@@ -283,7 +283,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         }
     }
 
-    __block TZImagePickerController *weakPicker = imagePickerVc;
+    __weak TZImagePickerController *weakPicker = imagePickerVc;
     [imagePickerVc setDidFinishPickingPhotosWithInfosHandle:^(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos) {
         if (isRecordSelected) {
             self.selectedAssets = [NSMutableArray arrayWithArray:assets];
@@ -304,7 +304,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         [weakPicker hideProgressHUD];
     }];
 
-    __block TZImagePickerController *weakPickerVc = imagePickerVc;
+    __weak TZImagePickerController *weakPickerVc = imagePickerVc;
     [imagePickerVc setImagePickerControllerDidCancelHandle:^{
         [self invokeError];
         [weakPickerVc hideProgressHUD];
