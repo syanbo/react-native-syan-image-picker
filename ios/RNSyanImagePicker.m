@@ -444,7 +444,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         return [self handleImageData:image quality:quality];
     }
     NSData *imageData = UIImagePNGRepresentation(image);
-    //无需压缩 所以不需要保存临时文件直接返回原图地址  ？？？？？
+    // 无需压缩 所以不需要保存临时文件直接返回原图地址  ？？？？？
     photo[@"uri"] = filePath;
     photo[@"width"] = @(image.size.width);
     photo[@"height"] = @(image.size.height);
