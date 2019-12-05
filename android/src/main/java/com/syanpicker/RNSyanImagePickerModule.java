@@ -24,7 +24,7 @@ import com.luck.picture.lib.config.PictureConfig;
 import com.luck.picture.lib.config.PictureMimeType;
 import com.luck.picture.lib.entity.LocalMedia;
 import com.luck.picture.lib.tools.PictureFileUtils;
-
+import com.syanpicker.GlideEngine;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -99,7 +99,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     @ReactMethod
     public void deleteCache() {
         Activity currentActivity = getCurrentActivity();
-        PictureFileUtils.deleteCacheDirFile(currentActivity);
+        PictureFileUtils.deleteAllCacheDirFile(currentActivity);
     }
 
     /**
@@ -159,6 +159,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         boolean scaleEnabled = this.cameraOptions.getBoolean("scaleEnabled");
         int minimumCompressSize = this.cameraOptions.getInt("minimumCompressSize");
         int quality = this.cameraOptions.getInt("quality");
+        boolean isWeChatStyle = this.cameraOptions.getBoolean("isWeChatStyle");
 
         int modeValue;
         if (imageCount == 1) {
@@ -166,9 +167,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         } else {
             modeValue = 2;
         }
+
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openGallery(PictureMimeType.ofImage())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
+                .loadImageEngine(GlideEngine.createGlideEngine())
                 .maxSelectNum(imageCount)// 最大图片选择数量 int
                 .minSelectNum(0)// 最小选择数量 int
                 .imageSpanCount(4)// 每行显示个数 int
@@ -197,7 +200,8 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .rotateEnabled(rotateEnabled) // 裁剪是否可旋转图片 true or false
                 .scaleEnabled(scaleEnabled)// 裁剪是否可放大缩小图片 true or false
                 .selectionMedia(selectList) // 当前已选中的图片 List
-                .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
+                .isWeChatStyle(isWeChatStyle)
+                .forResult(PictureConfig.CHOOSE_REQUEST); //结果回调onActivityResult code
     }
 
     /**
@@ -220,6 +224,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openCamera(PictureMimeType.ofImage())
+                .loadImageEngine(GlideEngine.createGlideEngine())
                 .imageFormat(PictureMimeType.PNG)// 拍照保存图片格式后缀,默认jpeg
                 .enableCrop(isCrop)// 是否裁剪 true or false
                 .compress(compress)// 是否压缩 true or false
@@ -251,6 +256,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openCamera(PictureMimeType.ofVideo())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
+                .loadImageEngine(GlideEngine.createGlideEngine())
                 .selectionMedia(selectList) // 当前已选中的图片 List
                 .openClickSound(false)// 是否开启点击声音 true or false
                 .maxSelectNum(imageCount)// 最大图片选择数量 int
@@ -321,7 +327,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         }
         WritableArray videoList = new WritableNativeArray();
         for (LocalMedia media : mVideoSelectList) {
-            if (TextUtils.isEmpty(media.getPath())){
+            if (TextUtils.isEmpty(media.getPath())) {
                 continue;
             }
             WritableMap videoMap = new WritableNativeMap();
@@ -355,9 +361,15 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
     private WritableMap getImageResult(LocalMedia media, Boolean enableBase64) {
         WritableMap imageMap = new WritableNativeMap();
         String path = media.getPath();
-        if (media.isCompressed() || media.isCut()){
+
+        if (media.isCompressed() || media.isCut()) {
             path = media.getCompressPath();
         }
+
+        if (media.isCut()) {
+            path = media.getCutPath()
+        }
+
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(path, options);
@@ -365,17 +377,14 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         imageMap.putDouble("height", options.outHeight);
         imageMap.putString("type", "image");
         imageMap.putString("uri", "file://" + path);
+        imageMap.putString("original_uri", "file://" + media.getPath());
         imageMap.putInt("size", (int) new File(path).length());
 
         if (enableBase64) {
             String encodeString = getBase64StringFromFile(path);
             imageMap.putString("base64", encodeString);
         }
-        if (media.isCut()) {
-            imageMap.putString("original_uri", "file://" + media.getCutPath());
-        } else {
-            imageMap.putString("original_uri", "file://" + media.getPath());
-        }
+
         return imageMap;
     }
 
