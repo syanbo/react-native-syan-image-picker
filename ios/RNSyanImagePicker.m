@@ -442,13 +442,14 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@.jpg", NSTemporaryDirectory(), [filename stringByDeletingPathExtension]]];
     }
 
-    NSData *writeData = isPNG ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality);
+    NSData *writeData = isPNG ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality/100);
     [writeData writeToFile:filePath atomically:YES];
 
     photo[@"uri"]       = filePath;
     photo[@"width"]     = @(image.size.width);
     photo[@"height"]    = @(image.size.height);
-    photo[@"size"]      = @(writeData.length);
+    NSInteger size = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil].fileSize;
+    photo[@"size"] = @(size);
     photo[@"mediaType"] = @(phAsset.mediaType);
     if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
         photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
@@ -462,7 +463,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     [self createDir];
 
     NSMutableDictionary *photo  = [NSMutableDictionary dictionary];
-    NSString *filename          = [phAsset valueForKey:@"filename"];
+    NSString *filename = [NSString stringWithFormat:@"%@%@", [[NSUUID UUID] UUIDString], [phAsset valueForKey:@"filename"]];
     NSString *fileExtension    = [filename pathExtension];
     UIImage *image = nil;
     NSData *writeData = nil;
@@ -475,13 +476,13 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
         writeData = data;
     } else {
         image = [UIImage imageWithData: data];
-        writeData = isPNG ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality);
+        writeData = isPNG ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality/100);
     }
 
     if (isPNG || isGIF) {
-        [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%d%@", NSTemporaryDirectory(), (int)(quality*100), filename]];
+        [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@", NSTemporaryDirectory(), filename]];
     } else {
-        [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%d%@.jpg", NSTemporaryDirectory(), (int)(quality*100), [filename stringByDeletingPathExtension]]];
+        [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@.jpg", NSTemporaryDirectory(), [filename stringByDeletingPathExtension]]];
     }
 
     [writeData writeToFile:filePath atomically:YES];
@@ -489,7 +490,8 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     photo[@"uri"]       = filePath;
     photo[@"width"]     = @(image.size.width);
     photo[@"height"]    = @(image.size.height);
-    photo[@"size"]      = @(writeData.length);
+    NSInteger size      = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil].fileSize;
+    photo[@"size"]      = @(size);
     photo[@"mediaType"] = @(phAsset.mediaType);
     if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
         photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
