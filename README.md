@@ -144,6 +144,9 @@ requestPermission = async () => {
         }
     };
 ```
+
+##### 5、同时使用 fast-image 需要使用glide 版本
+在build.gradle的buildscript，ext下新增glideVersion指定和fast-image一样的版本
  
 ### 注意安装运行报错
 1. 检查自动 link 是否成功 
