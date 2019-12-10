@@ -367,7 +367,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         }
 
         if (media.isCut()) {
-            path = media.getCutPath()
+            path = media.getCutPath();
         }
 
         BitmapFactory.Options options = new BitmapFactory.Options();
