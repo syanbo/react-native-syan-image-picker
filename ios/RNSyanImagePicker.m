@@ -1,6 +1,6 @@
 
 #import "RNSyanImagePicker.h"
-#import "TZImagePickerController.h"
+
 #import "TZImageManager.h"
 #import "NSDictionary+SYSafeConvert.h"
 #import "TZImageCropManager.h"
@@ -110,7 +110,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     NSInteger imageCount = [options sy_integerForKey:@"imageCount"];
     BOOL isCamera        = [options sy_boolForKey:@"isCamera"];
     BOOL isCrop          = [options sy_boolForKey:@"isCrop"];
-    BOOL allowPickingGif = [options sy_boolForKey:@"allowPickingGif"];
+    BOOL isGif = [options sy_boolForKey:@"isGif"];
     BOOL allowPickingVideo = [options sy_boolForKey:@"allowPickingVideo"];
     BOOL allowPickingMultipleVideo = [options sy_boolForKey:@"allowPickingMultipleVideo"];
     BOOL allowPickingImage = [options sy_boolForKey:@"allowPickingImage"];
@@ -124,16 +124,16 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     NSInteger videoMaximumDuration = [options sy_integerForKey:@"videoMaximumDuration"];
     NSInteger   quality  = [self.cameraOptions sy_integerForKey:@"quality"];
 
-    TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:nil];
+    TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:self];
 
     imagePickerVc.maxImagesCount = imageCount;
-    imagePickerVc.allowPickingGif = allowPickingGif; // 允许GIF
+    imagePickerVc.allowPickingGif = isGif; // 允许GIF
     imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
     imagePickerVc.allowPickingVideo = allowPickingVideo; // 不允许视频
     imagePickerVc.allowPickingImage = allowPickingImage;
     imagePickerVc.allowTakeVideo = NO;
     imagePickerVc.videoMaximumDuration = videoMaximumDuration;
-    imagePickerVc.allowPickingMultipleVideo = allowPickingMultipleVideo;
+    imagePickerVc.allowPickingMultipleVideo = isGif ? YES : allowPickingMultipleVideo;
     imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
     imagePickerVc.sortAscendingByModificationDate = sortAscendingByModificationDate;
     imagePickerVc.alwaysEnableDoneBtn = YES;
@@ -207,13 +207,14 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
     BOOL isRecordSelected = [self.cameraOptions sy_boolForKey:@"isRecordSelected"];
     BOOL allowPickingOriginalPhoto = [self.cameraOptions sy_boolForKey:@"allowPickingOriginalPhoto"];
+    BOOL allowPickingMultipleVideo = [self.cameraOptions sy_boolForKey:@"allowPickingMultipleVideo"];
     BOOL sortAscendingByModificationDate = [self.cameraOptions sy_boolForKey:@"sortAscendingByModificationDate"];
     NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
     NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
     NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
     NSInteger   quality  = [self.cameraOptions sy_integerForKey:@"quality"];
 
-    TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:nil];
+    TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:self];
 
     imagePickerVc.maxImagesCount = imageCount;
     imagePickerVc.allowPickingGif = isGif; // 允许GIF
@@ -222,6 +223,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
     imagePickerVc.sortAscendingByModificationDate = sortAscendingByModificationDate;
     imagePickerVc.alwaysEnableDoneBtn = YES;
+    imagePickerVc.allowPickingMultipleVideo = isGif ? YES : allowPickingMultipleVideo;
     imagePickerVc.allowCrop = isCrop;   // 裁剪
     imagePickerVc.modalPresentationStyle = UIModalPresentationFullScreen;
 
@@ -385,6 +387,15 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     }
 }
 
+- (BOOL)isAssetCanSelect:(PHAsset *)asset {
+    BOOL allowPickingGif = [self.cameraOptions sy_boolForKey:@"isGif"];
+    BOOL isGIF = [[TZImageManager manager] getAssetType:asset] == TZAssetModelMediaTypePhotoGif;
+    if (!allowPickingGif && isGIF) {
+        return NO;
+    }
+    return YES;
+}
+
 /// 异步处理获取图片
 - (void)handleAssets:(NSArray *)assets photos:(NSArray*)photos quality:(CGFloat)quality isSelectOriginalPhoto:(BOOL)isSelectOriginalPhoto completion:(void (^)(NSArray *selecteds))completion fail:(void(^)(NSError *error))fail {
     NSMutableArray *selectedPhotos = [NSMutableArray array];
@@ -493,7 +504,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     NSInteger size      = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil].fileSize;
     photo[@"size"]      = @(size);
     photo[@"mediaType"] = @(phAsset.mediaType);
-    if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
+    if ([self.cameraOptions sy_boolForKey:@"enableBase64"] && !isGIF) {
         photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
     }
 

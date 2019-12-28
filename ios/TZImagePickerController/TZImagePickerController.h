@@ -4,7 +4,7 @@
 //
 //  Created by 谭真 on 15/12/24.
 //  Copyright © 2015年 谭真. All rights reserved.
-//  version 3.0.9 - 2018.10.09
+//  version 3.2.6 - 2019.10.21
 //  更多信息，请前往项目的github地址：https://github.com/banchichen/TZImagePickerController
 
 /*
@@ -56,7 +56,8 @@
 /// 对照片排序，按修改时间升序，默认是YES。如果设置为NO,最新的照片会显示在最前面，内部的拍照按钮会排在第一个
 @property (nonatomic, assign) BOOL sortAscendingByModificationDate;
 
-/// The pixel width of output image, Default is 828px / 导出图片的宽度，默认828像素宽
+/// The pixel width of output image, Default is 828px，you need to set photoPreviewMaxWidth at the same time
+/// 导出图片的宽度，默认828像素宽，你需要同时设置photoPreviewMaxWidth的值
 @property (nonatomic, assign) CGFloat photoWidth;
 
 /// Default is 600px / 默认600像素宽
@@ -127,8 +128,8 @@
 /// Default is white color with 0.8 alpha;
 @property (strong, nonatomic) UIColor *cannotSelectLayerColor;
 
-/// Default is No, if set YES, the result photo will not be scaled to photoWidth pixel width. The photoWidth default is 828px
-/// 默认是NO，如果设置为YES，内部不会缩放图片到photoWidth像素宽
+/// Default is YES, if set NO, the result photo will be scaled to photoWidth pixel width. The photoWidth default is 828px
+/// 默认是YES，如果设置为NO，内部会缩放图片到photoWidth像素宽
 @property (assign, nonatomic) BOOL notScaleImage;
 
 /// 默认是NO，如果设置为YES，导出视频时会修正转向（慎重设为YES，可能导致部分安卓下拍的视频导出失败）
@@ -159,6 +160,7 @@
 /// 单选模式,maxImagesCount为1时才生效
 @property (nonatomic, assign) BOOL showSelectBtn;        ///< 在单选模式下，照片列表页中，显示选择按钮,默认为NO
 @property (nonatomic, assign) BOOL allowCrop;            ///< 允许裁剪,默认为YES，showSelectBtn为NO才生效
+@property (nonatomic, assign) BOOL scaleAspectFillCrop;  ///< 是否图片等比缩放填充cropRect区域
 @property (nonatomic, assign) CGRect cropRect;           ///< 裁剪框的尺寸
 @property (nonatomic, assign) CGRect cropRectPortrait;   ///< 裁剪框的尺寸(竖屏)
 @property (nonatomic, assign) CGRect cropRectLandscape;  ///< 裁剪框的尺寸(横屏)
@@ -181,6 +183,10 @@
 @property (nonatomic, copy) void (^gifPreviewPageDidLayoutSubviewsBlock)(UIView *toolBar, UIButton *doneButton);
 @property (nonatomic, copy) void (^assetCellDidLayoutSubviewsBlock)(TZAssetCell *cell, UIImageView *imageView, UIImageView *selectImageView, UILabel *indexLabel, UIView *bottomView, UILabel *timeLength, UIImageView *videoImgView);
 @property (nonatomic, copy) void (^albumCellDidLayoutSubviewsBlock)(TZAlbumCell *cell, UIImageView *posterImageView, UILabel *titleLabel);
+/// 自定义各页面/组件的frame】刷新底部状态(refreshNaviBarAndBottomBarState)使用的
+@property (nonatomic, copy) void (^photoPickerPageDidRefreshStateBlock)(UICollectionView *collectionView, UIView *bottomToolBar, UIButton *previewButton, UIButton *originalPhotoButton, UILabel *originalPhotoLabel, UIButton *doneButton, UIImageView *numberImageView, UILabel *numberLabel, UIView *divideLine);
+
+@property (nonatomic, copy) void (^photoPreviewPageDidRefreshStateBlock)(UICollectionView *collectionView, UIView *naviBar, UIButton *backButton, UIButton *selectButton, UILabel *indexLabel, UIView *toolBar, UIButton *originalPhotoButton, UILabel *originalPhotoLabel, UIButton *doneButton, UIImageView *numberImageView, UILabel *numberLabel);
 
 #pragma mark -
 - (UIAlertController *)showAlertWithTitle:(NSString *)title;
@@ -230,26 +236,11 @@
 #pragma mark -
 - (void)cancelButtonClick;
 
-// The picker should dismiss itself; when it dismissed these handle will be called.
-// You can also set autoDismiss to NO, then the picker don't dismiss itself.
-// If isOriginalPhoto is YES, user picked the original photo.
-// You can get original photo with asset, by the method [[TZImageManager manager] getOriginalPhotoWithAsset:completion:].
-// The UIImage Object in photos default width is 828px, you can set it by photoWidth property.
-// 这个照片选择器会自己dismiss，当选择器dismiss的时候，会执行下面的handle
-// 你也可以设置autoDismiss属性为NO，选择器就不会自己dismis了
-// 如果isSelectOriginalPhoto为YES，表明用户选择了原图
-// 你可以通过一个asset获得原图，通过这个方法：[[TZImageManager manager] getOriginalPhotoWithAsset:completion:]
-// photos数组里的UIImage对象，默认是828像素宽，你可以通过设置photoWidth属性的值来改变它
+// For method annotations, see the corresponding method in TZImagePickerControllerDelegate / 方法注释见TZImagePickerControllerDelegate中对应方法
 @property (nonatomic, copy) void (^didFinishPickingPhotosHandle)(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto);
 @property (nonatomic, copy) void (^didFinishPickingPhotosWithInfosHandle)(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos);
 @property (nonatomic, copy) void (^imagePickerControllerDidCancelHandle)(void);
-
-// If user picking a video, this handle will be called.
-// 如果用户选择了一个视频，下面的handle会被执行
 @property (nonatomic, copy) void (^didFinishPickingVideoHandle)(UIImage *coverImage,PHAsset *asset);
-
-// If user picking a gif image, this callback will be called.
-// 如果用户选择了一个gif图片，下面的handle会被执行
 @property (nonatomic, copy) void (^didFinishPickingGifImageHandle)(UIImage *animatedImage,id sourceAssets);
 
 @property (nonatomic, weak) id<TZImagePickerControllerDelegate> pickerDelegate;
@@ -259,27 +250,30 @@
 
 @protocol TZImagePickerControllerDelegate <NSObject>
 @optional
-// The picker should dismiss itself; when it dismissed these handle will be called.
+// The picker should dismiss itself; when it dismissed these callback will be called.
 // You can also set autoDismiss to NO, then the picker don't dismiss itself.
 // If isOriginalPhoto is YES, user picked the original photo.
 // You can get original photo with asset, by the method [[TZImageManager manager] getOriginalPhotoWithAsset:completion:].
 // The UIImage Object in photos default width is 828px, you can set it by photoWidth property.
-// 这个照片选择器会自己dismiss，当选择器dismiss的时候，会执行下面的handle
+// 这个照片选择器会自己dismiss，当选择器dismiss的时候，会执行下面的代理方法
 // 你也可以设置autoDismiss属性为NO，选择器就不会自己dismis了
 // 如果isSelectOriginalPhoto为YES，表明用户选择了原图
 // 你可以通过一个asset获得原图，通过这个方法：[[TZImageManager manager] getOriginalPhotoWithAsset:completion:]
 // photos数组里的UIImage对象，默认是828像素宽，你可以通过设置photoWidth属性的值来改变它
 - (void)imagePickerController:(TZImagePickerController *)picker didFinishPickingPhotos:(NSArray<UIImage *> *)photos sourceAssets:(NSArray *)assets isSelectOriginalPhoto:(BOOL)isSelectOriginalPhoto;
 - (void)imagePickerController:(TZImagePickerController *)picker didFinishPickingPhotos:(NSArray<UIImage *> *)photos sourceAssets:(NSArray *)assets isSelectOriginalPhoto:(BOOL)isSelectOriginalPhoto infos:(NSArray<NSDictionary *> *)infos;
-//- (void)imagePickerControllerDidCancel:(TZImagePickerController *)picker __attribute__((deprecated("Use -tz_imagePickerControllerDidCancel:.")));
 - (void)tz_imagePickerControllerDidCancel:(TZImagePickerController *)picker;
 
-// If user picking a video, this callback will be called.
-// 如果用户选择了一个视频，下面的handle会被执行
+// If user picking a video and allowPickingMultipleVideo is NO, this callback will be called.
+// If allowPickingMultipleVideo is YES, will call imagePickerController:didFinishPickingPhotos:sourceAssets:isSelectOriginalPhoto:
+// 如果用户选择了一个视频且allowPickingMultipleVideo是NO，下面的代理方法会被执行
+// 如果allowPickingMultipleVideo是YES，将会调用imagePickerController:didFinishPickingPhotos:sourceAssets:isSelectOriginalPhoto:
 - (void)imagePickerController:(TZImagePickerController *)picker didFinishPickingVideo:(UIImage *)coverImage sourceAssets:(PHAsset *)asset;
 
-// If user picking a gif image, this callback will be called.
-// 如果用户选择了一个gif图片，下面的handle会被执行
+// If user picking a gif image and allowPickingMultipleVideo is NO, this callback will be called.
+// If allowPickingMultipleVideo is YES, will call imagePickerController:didFinishPickingPhotos:sourceAssets:isSelectOriginalPhoto:
+// 如果用户选择了一个gif图片且allowPickingMultipleVideo是NO，下面的代理方法会被执行
+// 如果allowPickingMultipleVideo是YES，将会调用imagePickerController:didFinishPickingPhotos:sourceAssets:isSelectOriginalPhoto:
 - (void)imagePickerController:(TZImagePickerController *)picker didFinishPickingGifImage:(UIImage *)animatedImage sourceAssets:(PHAsset *)asset;
 
 // Decide album show or not't
@@ -300,7 +294,7 @@
 
 
 @interface UIImage (MyBundle)
-+ (UIImage *)imageNamedFromMyBundle:(NSString *)name;
++ (UIImage *)tz_imageNamedFromMyBundle:(NSString *)name;
 @end
 
 
@@ -309,7 +303,8 @@
 + (CGFloat)tz_statusBarHeight;
 // 获得Info.plist数据字典
 + (NSDictionary *)tz_getInfoDictionary;
-+ (BOOL)isRightToLeftLayout;
++ (BOOL)tz_isRightToLeftLayout;
++ (void)configBarButtonItem:(UIBarButtonItem *)item tzImagePickerVc:(TZImagePickerController *)tzImagePickerVc;
 @end
 
 

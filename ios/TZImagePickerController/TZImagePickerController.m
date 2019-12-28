@@ -4,7 +4,7 @@
 //
 //  Created by 谭真 on 15/12/24.
 //  Copyright © 2015年 谭真. All rights reserved.
-//  version 3.0.9 - 2018.10.09
+//  version 3.2.6 - 2019.10.21
 //  更多信息，请前往项目的github地址：https://github.com/banchichen/TZImagePickerController
 
 #import "TZImagePickerController.h"
@@ -21,6 +21,7 @@
     UIButton *_settingBtn;
     BOOL _pushPhotoPickerVc;
     BOOL _didPushPhotoPickerVc;
+    CGRect _cropRect;
     
     UIButton *_progressHUD;
     UIView *_HUDContainer;
@@ -183,6 +184,7 @@
             NSDictionary *infoDict = [TZCommonTools tz_getInfoDictionary];
             NSString *appName = [infoDict valueForKey:@"CFBundleDisplayName"];
             if (!appName) appName = [infoDict valueForKey:@"CFBundleName"];
+            if (!appName) appName = [infoDict valueForKey:@"CFBundleExecutable"];
             NSString *tipText = [NSString stringWithFormat:[NSBundle tz_localizedStringForKey:@"Allow %@ to access your album in \"Settings -> Privacy -> Photos\""],appName];
             _tipLabel.text = tipText;
             [self.view addSubview:_tipLabel];
@@ -235,6 +237,7 @@
     self = [super initWithRootViewController:previewVc];
     if (self) {
         self.maxImagesCount = 1;
+        self.allowPickingImage = YES;
         self.allowCrop = YES;
         self.selectedAssets = [NSMutableArray arrayWithArray:@[asset]];
         [self configDefaultSetting];
@@ -290,37 +293,37 @@
 
 - (void)setTakePictureImageName:(NSString *)takePictureImageName {
     _takePictureImageName = takePictureImageName;
-    _takePictureImage = [UIImage imageNamedFromMyBundle:takePictureImageName];
+    _takePictureImage = [UIImage tz_imageNamedFromMyBundle:takePictureImageName];
 }
 
 - (void)setPhotoSelImageName:(NSString *)photoSelImageName {
     _photoSelImageName = photoSelImageName;
-    _photoSelImage = [UIImage imageNamedFromMyBundle:photoSelImageName];
+    _photoSelImage = [UIImage tz_imageNamedFromMyBundle:photoSelImageName];
 }
 
 - (void)setPhotoDefImageName:(NSString *)photoDefImageName {
     _photoDefImageName = photoDefImageName;
-    _photoDefImage = [UIImage imageNamedFromMyBundle:photoDefImageName];
+    _photoDefImage = [UIImage tz_imageNamedFromMyBundle:photoDefImageName];
 }
 
 - (void)setPhotoNumberIconImageName:(NSString *)photoNumberIconImageName {
     _photoNumberIconImageName = photoNumberIconImageName;
-    _photoNumberIconImage = [UIImage imageNamedFromMyBundle:photoNumberIconImageName];
+    _photoNumberIconImage = [UIImage tz_imageNamedFromMyBundle:photoNumberIconImageName];
 }
 
 - (void)setPhotoPreviewOriginDefImageName:(NSString *)photoPreviewOriginDefImageName {
     _photoPreviewOriginDefImageName = photoPreviewOriginDefImageName;
-    _photoPreviewOriginDefImage = [UIImage imageNamedFromMyBundle:photoPreviewOriginDefImageName];
+    _photoPreviewOriginDefImage = [UIImage tz_imageNamedFromMyBundle:photoPreviewOriginDefImageName];
 }
 
 - (void)setPhotoOriginDefImageName:(NSString *)photoOriginDefImageName {
     _photoOriginDefImageName = photoOriginDefImageName;
-    _photoOriginDefImage = [UIImage imageNamedFromMyBundle:photoOriginDefImageName];
+    _photoOriginDefImage = [UIImage tz_imageNamedFromMyBundle:photoOriginDefImageName];
 }
 
 - (void)setPhotoOriginSelImageName:(NSString *)photoOriginSelImageName {
     _photoOriginSelImageName = photoOriginSelImageName;
-    _photoOriginSelImage = [UIImage imageNamedFromMyBundle:photoOriginSelImageName];
+    _photoOriginSelImage = [UIImage tz_imageNamedFromMyBundle:photoOriginSelImageName];
 }
 
 - (void)setIconThemeColor:(UIColor *)iconThemeColor {
@@ -489,6 +492,18 @@
     _cropRectPortrait = cropRect;
     CGFloat widthHeight = cropRect.size.width;
     _cropRectLandscape = CGRectMake((self.view.tz_height - widthHeight) / 2, cropRect.origin.x, widthHeight, widthHeight);
+}
+
+- (CGRect)cropRect {
+    CGFloat screenHeight = [UIScreen mainScreen].bounds.size.height;
+    BOOL isFullScreen = self.view.tz_height == screenHeight;
+    if (isFullScreen) {
+        return _cropRect;
+    } else {
+        CGRect newCropRect = _cropRect;
+        newCropRect.origin.y -= ((screenHeight - self.view.tz_height) / 2);
+        return newCropRect;
+    }
 }
 
 - (void)setTimeout:(NSInteger)timeout {
@@ -696,7 +711,9 @@
     self.view.backgroundColor = [UIColor whiteColor];
     
     TZImagePickerController *imagePickerVc = (TZImagePickerController *)self.navigationController;
-    self.navigationItem.rightBarButtonItem = [[UIBarButtonItem alloc] initWithTitle:imagePickerVc.cancelBtnTitleStr style:UIBarButtonItemStylePlain target:imagePickerVc action:@selector(cancelButtonClick)];
+    UIBarButtonItem *cancelItem = [[UIBarButtonItem alloc] initWithTitle:imagePickerVc.cancelBtnTitleStr style:UIBarButtonItemStylePlain target:imagePickerVc action:@selector(cancelButtonClick)];
+    [TZCommonTools configBarButtonItem:cancelItem tzImagePickerVc:imagePickerVc];
+    self.navigationItem.rightBarButtonItem = cancelItem;
 }
 
 - (void)viewWillAppear:(BOOL)animated {
@@ -726,8 +743,8 @@
         [imagePickerVc showProgressHUD];
     }
 
+    TZImagePickerController *imagePickerVc = (TZImagePickerController *)self.navigationController;
     dispatch_async(dispatch_get_global_queue(0, 0), ^{
-        TZImagePickerController *imagePickerVc = (TZImagePickerController *)self.navigationController;
         [[TZImageManager manager] getAllAlbums:imagePickerVc.allowPickingVideo allowPickingImage:imagePickerVc.allowPickingImage needFetchAssets:!self.isFirstAppear completion:^(NSArray<TZAlbumModel *> *models) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 self->_albumArr = [NSMutableArray arrayWithArray:models];
@@ -744,6 +761,7 @@
                 if (!self->_tableView) {
                     self->_tableView = [[UITableView alloc] initWithFrame:CGRectZero style:UITableViewStylePlain];
                     self->_tableView.rowHeight = 70;
+                    self->_tableView.backgroundColor = [UIColor whiteColor];
                     self->_tableView.tableFooterView = [[UIView alloc] init];
                     self->_tableView.dataSource = self;
                     self->_tableView.delegate = self;
@@ -778,9 +796,10 @@
     CGFloat tableViewHeight = 0;
     CGFloat naviBarHeight = self.navigationController.navigationBar.tz_height;
     BOOL isStatusBarHidden = [UIApplication sharedApplication].isStatusBarHidden;
+    BOOL isFullScreen = self.view.tz_height == [UIScreen mainScreen].bounds.size.height;
     if (self.navigationController.navigationBar.isTranslucent) {
         top = naviBarHeight;
-        if (!isStatusBarHidden) top += [TZCommonTools tz_statusBarHeight];
+        if (!isStatusBarHidden && isFullScreen) top += [TZCommonTools tz_statusBarHeight];
         tableViewHeight = self.view.tz_height - top;
     } else {
         tableViewHeight = self.view.tz_height;
@@ -821,7 +840,7 @@
 
 @implementation UIImage (MyBundle)
 
-+ (UIImage *)imageNamedFromMyBundle:(NSString *)name {
++ (UIImage *)tz_imageNamedFromMyBundle:(NSString *)name {
     NSBundle *imageBundle = [NSBundle tz_imagePickerBundle];
     name = [name stringByAppendingString:@"@2x"];
     NSString *imagePath = [imageBundle pathForResource:name ofType:@"png"];
@@ -863,7 +882,7 @@
     return infoDict ? infoDict : @{};
 }
 
-+ (BOOL)isRightToLeftLayout {
++ (BOOL)tz_isRightToLeftLayout {
     if (@available(iOS 9.0, *)) {
         if ([UIView userInterfaceLayoutDirectionForSemanticContentAttribute:UISemanticContentAttributeUnspecified] == UIUserInterfaceLayoutDirectionRightToLeft) {
             return YES;
@@ -875,6 +894,14 @@
         }
     }
     return NO;
+}
+
++ (void)configBarButtonItem:(UIBarButtonItem *)item tzImagePickerVc:(TZImagePickerController *)tzImagePickerVc {
+    item.tintColor = tzImagePickerVc.barItemTextColor;
+    NSMutableDictionary *textAttrs = [NSMutableDictionary dictionary];
+    textAttrs[NSForegroundColorAttributeName] = tzImagePickerVc.barItemTextColor;
+    textAttrs[NSFontAttributeName] = tzImagePickerVc.barItemTextFont;
+    [item setTitleTextAttributes:textAttrs forState:UIControlStateNormal];
 }
 
 @end
