@@ -12,7 +12,7 @@
 
 ### 原生框架依赖
 * Android： [PictureSelector 2.3.8](https://github.com/LuckSiege/PictureSelector) - by [LuckSiege](https://github.com/LuckSiege)
-* iOS：[TZImagePickerController 3.0.9](https://github.com/banchichen/TZImagePickerController) - by [banchichen](https://github.com/banchichen)
+* iOS：[TZImagePickerController 3.3.1](https://github.com/banchichen/TZImagePickerController) - by [banchichen](https://github.com/banchichen)
 
 ### 功能特点
 * 支持 iOS、Android 两端
