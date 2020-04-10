@@ -2,6 +2,7 @@
 package com.syanpicker;
 
 import android.app.Activity;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.BitmapFactory;
 import android.text.TextUtils;
@@ -32,6 +33,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -279,13 +281,15 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         int MaxSecond = this.cameraOptions.getInt("MaxSecond");
         int MinSecond = this.cameraOptions.getInt("MinSecond");
         int recordVideoSecond = this.cameraOptions.getInt("recordVideoSecond");
-        int videoCount = this.cameraOptions.getInt("videoCount");
+        int videoCount = this.cameraOptions.getInt("imageCount");
+        boolean isCamera = this.cameraOptions.getBoolean("allowTakeVideo");
+
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openGallery(PictureMimeType.ofVideo())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
                 .selectionMedia(selectList) // 当前已选中的视频 List
                 .openClickSound(false)// 是否开启点击声音 true or false
-                .isCamera(false)// 是否显示拍照按钮 true or false
+                .isCamera(isCamera)// 是否显示拍照按钮 true or false
                 .maxSelectNum(videoCount)// 最大视频选择数量 int
                 .minSelectNum(1)// 最小选择数量 int
                 .imageSpanCount(4)// 每行显示个数 int
@@ -330,12 +334,22 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             if (TextUtils.isEmpty(media.getPath())) {
                 continue;
             }
+
+            DecimalFormat df = new DecimalFormat("#.00");
             WritableMap videoMap = new WritableNativeMap();
-            videoMap.putString("size", new File(media.getPath()).length() + "");
-            videoMap.putString("duration", media.getDuration() + "");
+
+            // File Path https://stackoverflow.com/questions/3401579/get-filename-and-path-from-uri-from-mediastore
+            Context ctx = this.reactContext.getApplicationContext();
+            String filePath = Utils.getPathFromURI(ctx, media.getPath());
+
+            videoMap.putString("uri", filePath);
             videoMap.putString("fileName", new File(media.getPath()).getName());
-            videoMap.putString("uri", "file://" + media.getPath());
+            videoMap.putDouble("size", new File(media.getPath()).length());
+            videoMap.putDouble("duration", media.getDuration() / 1000.00);
+            videoMap.putInt("width", media.getWidth());
+            videoMap.putInt("height", media.getHeight());
             videoMap.putString("type", "video");
+            videoMap.putString("mime", media.getMimeType());
             videoList.pushMap(videoMap);
         }
 

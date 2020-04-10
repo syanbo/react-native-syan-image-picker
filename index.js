@@ -140,19 +140,21 @@ export default {
     },
 
     openVideoPicker(options, callback) {
+        const imageCount = options.videoCount ? options.videoCount : 1
         const optionObj = {
             ...defaultOptions,
             isCamera: false,
             allowPickingGif: false,
             allowPickingVideo: true,
             allowPickingImage: false,
-            allowPickingMultipleVideo: true,
+            allowTakeVideo: true,
+            allowPickingMultipleVideo: imageCount > 1,
             videoMaximumDuration: 20,
             MaxSecond: 60,
             MinSecond: 0,
             recordVideoSecond: 60,
-            videoCount: 1,
-            ...options
+            ...options,
+            imageCount
         };
         return RNSyanImagePicker.openVideoPicker(optionObj, callback)
     }

@@ -23,8 +23,11 @@ export interface ImagePickerOption {
     videoMaximumDuration: number, // 视频最大拍摄时间，默认是10分钟，单位是秒
     isWeChatStyle: boolean,      // 是否是微信风格选择界面 Android Only
     sortAscendingByModificationDate: boolean // 对照片排序，按修改时间升序，默认是YES。如果设置为NO,最新的照片会显示在最前面，内部的拍照按钮会排在第一个
+    videoCount: number // 视频个数
+    MaxSecond: number // 选择视频最大时长，默认是180秒
+    MinSecond: number // 选择视频最小时长，默认是1秒
   }
-  
+
   interface SelectedPhoto {
     width: number, 	 //图片宽度
     height: number,  	//图片高度
@@ -34,7 +37,7 @@ export interface ImagePickerOption {
     size:number, 	 //图片大小，单位为字节 b
     base64:string	//图片的 base64 编码，如果 enableBase64 设置 false，则不返回该属性
   }
-  
+
   /**
    * 以Callback形式调用
    * 1、相册参数暂时只支持默认参数中罗列的属性；
@@ -54,8 +57,8 @@ export interface ImagePickerOption {
    * @param {Function} callback 成功，或失败回调
    */
   export function showImagePicker (options:Partial<ImagePickerOption>,callback:(err:null|string,photos:Array<SelectedPhoto>)=>void): void;
-  
-  
+
+
   /**
    * 以Promise形式调用
    * 1、相册参数暂时只支持默认参数中罗列的属性；
@@ -83,33 +86,32 @@ export interface ImagePickerOption {
    * @return {Promise} 返回一个Promise对象
    */
   export function asyncShowImagePicker (options:Partial<ImagePickerOption>): Promise<Array<SelectedPhoto>>;
-  
+
   /**
    * 打开相机支持裁剪参数
    * @param options
    * @param callback
    */
   export function openCamera (options:Partial<ImagePickerOption>,callback:(err:null|string,photos:Array<SelectedPhoto>)=>void): void;
-  
-  
+
+
   export function asyncOpenCamera (options:Partial<ImagePickerOption>): Promise<Array<SelectedPhoto>>;
-  
+
   /**
    * 清除缓存
    */
   export function deleteCache (): void;
-  
+
   /**
    * 移除选中的图片
    * @param {Number} index 要移除的图片下标
    */
   export function removePhotoAtIndex (index:number): void;
-  
+
   /**
    * 移除所有选中图片
    */
   export function removeAllPhoto (): void;
-  
+
   export function openVideoPicker (options:Partial<ImagePickerOption>,callback:(err:null|string,photos:Array<SelectedPhoto>)=>void): void;
-  
-  
+
