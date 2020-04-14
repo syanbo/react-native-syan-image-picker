@@ -1,4 +1,4 @@
-package com.luck.pictureselector;
+package com.syanpicker;
 
 import android.content.Context;
 import android.graphics.Bitmap;
