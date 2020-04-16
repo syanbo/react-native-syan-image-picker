@@ -16,7 +16,7 @@ Pod::Spec.new do |s|
   s.resource        = "TZImagePickerController/TZImagePickerController.bundle"
 
   s.dependency "React"
+  s.dependency "TZImagePickerController"
   #s.dependency "others"
 
 end
-
