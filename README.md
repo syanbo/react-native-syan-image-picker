@@ -314,6 +314,61 @@ SyanImagePicker.openCamera(options, (err, photos) => {
  })
 ```
 
+### 选择视频
+
+```javascript
+SyanImagePicker.openVideoPicker(options, (err, videos) => {
+  if (err) {
+    // 取消选择
+    return;
+  }
+  // 选择成功，处理视频
+  // ...
+})
+```
+
+options 可选配置：
+
+```
+{
+  MaxSecond: 60,
+  MinSecond: 0,
+  recordVideoSecond: 60,
+  videoCount: 1
+}
+```
+
+返回结果：
+
+| type | value | iOS | Android |
+|---|---|---|---|
+| uri | string | ✅ | ✅|
+| fileName | string | ✅ | ✅|
+| size | string | ✅ | ✅|
+| duration | number | ✅ | ✅|
+| width | number | ✅ | ✅|
+| height | number | ✅ | ✅|
+| type | string | ✅ | ✅|
+| mime | string | ✅ | ✅|
+| coverUri | string | ✅ | ❌|
+| favorite | string | ✅ | ❌|
+| mediaType | string | ✅ | ❌|
+
+Android 返回结果：
+
+```javascript
+{
+  "mime": "video/mp4",
+  "type": "video",
+  "height": 1080,
+  "width": 1920,
+  "duration": 30.22,
+  "size": 63876724,
+  "fileName": "VID_20200409_11492864.mp4",
+  "uri": "file:///storage/emulated/0/DCIM/Camera/VID_20200409_11492864.mp4"
+}
+```
+
 ### 删除缓存
 ```javascript
 SYImagePicker.deleteCache();

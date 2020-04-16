@@ -114,6 +114,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     BOOL allowPickingVideo = [options sy_boolForKey:@"allowPickingVideo"];
     BOOL allowPickingMultipleVideo = [options sy_boolForKey:@"allowPickingMultipleVideo"];
     BOOL allowPickingImage = [options sy_boolForKey:@"allowPickingImage"];
+    BOOL allowTakeVideo = [options sy_boolForKey:@"allowTakeVideo"];
     BOOL showCropCircle  = [options sy_boolForKey:@"showCropCircle"];
     BOOL isRecordSelected = [options sy_boolForKey:@"isRecordSelected"];
     BOOL allowPickingOriginalPhoto = [options sy_boolForKey:@"allowPickingOriginalPhoto"];
@@ -131,9 +132,9 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
     imagePickerVc.allowPickingVideo = allowPickingVideo; // 不允许视频
     imagePickerVc.allowPickingImage = allowPickingImage;
-    imagePickerVc.allowTakeVideo = NO;
+    imagePickerVc.allowTakeVideo = allowTakeVideo; // 允许拍摄视频
     imagePickerVc.videoMaximumDuration = videoMaximumDuration;
-    imagePickerVc.allowPickingMultipleVideo = isGif ? YES : allowPickingMultipleVideo;
+    imagePickerVc.allowPickingMultipleVideo = isGif || allowPickingMultipleVideo ? YES : NO;
     imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
     imagePickerVc.sortAscendingByModificationDate = sortAscendingByModificationDate;
     imagePickerVc.alwaysEnableDoneBtn = YES;
@@ -176,6 +177,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     [imagePickerVc setDidFinishPickingVideoHandle:^(UIImage *coverImage, PHAsset *asset) {
         [weakPicker showProgressHUD];
         [[TZImageManager manager] getVideoOutputPathWithAsset:asset presetName:AVAssetExportPresetHighestQuality success:^(NSString *outputPath) {
+            NSLog(@"视频导出成功:%@", outputPath);
             callback(@[[NSNull null], @[[self handleVideoData:outputPath asset:asset coverImage:coverImage quality:quality]]]);
             [weakPicker dismissViewControllerAnimated:YES completion:nil];
             [weakPicker hideProgressHUD];
@@ -518,12 +520,16 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     video[@"fileName"] = [asset valueForKey:@"filename"];
     NSInteger size = [[NSFileManager defaultManager] attributesOfItemAtPath:outputPath error:nil].fileSize;
     video[@"size"] = @(size);
+    video[@"duration"] = @(asset.duration);
     video[@"width"] = @(asset.pixelWidth);
     video[@"height"] = @(asset.pixelHeight);
-    video[@"favorite"] = @(asset.favorite);
-    video[@"duration"] = @(asset.duration);
-    video[@"mediaType"] = @(asset.mediaType);
+    video[@"type"] = @"video";
+    video[@"mime"] = @"video/mp4";
+    // iOS only
     video[@"coverUri"] = [self handleCropImage:coverImage phAsset:asset quality:quality][@"uri"];
+    video[@"favorite"] = @(asset.favorite);
+    video[@"mediaType"] = @(asset.mediaType);
+
     return video;
 }
 
