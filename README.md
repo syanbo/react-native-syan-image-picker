@@ -11,7 +11,7 @@
 基于已有原生第三方框架封装的多图片选择组件，适用于 React Native App。
 
 ### 原生框架依赖
-* Android： [PictureSelector 2.3.8](https://github.com/LuckSiege/PictureSelector) - by [LuckSiege](https://github.com/LuckSiege)
+* Android： [PictureSelector 2.5.2](https://github.com/LuckSiege/PictureSelector) - by [LuckSiege](https://github.com/LuckSiege)
 * iOS：[TZImagePickerController 3.3.1](https://github.com/banchichen/TZImagePickerController) - by [banchichen](https://github.com/banchichen)
 
 ### 功能特点
