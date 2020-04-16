@@ -350,7 +350,7 @@ options 可选配置：
 | height | number | ✅ | ✅|
 | type | string | ✅ | ✅|
 | mime | string | ✅ | ✅|
-| coverUri | string | ✅ | ❌|
+| coverUri | string | ✅ | ✅|
 | favorite | string | ✅ | ❌|
 | mediaType | string | ✅ | ❌|
 
@@ -358,16 +358,19 @@ Android 返回结果：
 
 ```javascript
 {
-  "mime": "video/mp4",
-  "type": "video",
-  "height": 1080,
-  "width": 1920,
-  "duration": 30.22,
-  "size": 63876724,
-  "fileName": "VID_20200409_11492864.mp4",
-  "uri": "file:///storage/emulated/0/DCIM/Camera/VID_20200409_11492864.mp4"
+  mime: "video/mp4",
+  type: "video",
+  height: 1080,
+  width: 1920,
+  duration: 30.22,
+  size: 63876724,
+  fileName: "VID_20200409_11492864.mp4",
+  uri: "file:///storage/emulated/0/DCIM/Camera/VID_20200409_11492864.mp4",
+  coverUri: "file:///storage/emulated/0/Android/data/package_id/cache/thumb-c3c99b6a.jpg"
 }
 ```
+
+注：uri 包含协议 "file://"
 
 ### 删除缓存
 ```javascript

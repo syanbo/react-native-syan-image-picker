@@ -2,9 +2,11 @@
 package com.syanpicker;
 
 import android.app.Activity;
-import android.content.Context;
 import android.content.Intent;
+import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.MediaMetadataRetriever;
+import android.os.Build;
 import android.text.TextUtils;
 import android.util.Base64;
 
@@ -25,17 +27,18 @@ import com.luck.picture.lib.config.PictureConfig;
 import com.luck.picture.lib.config.PictureMimeType;
 import com.luck.picture.lib.entity.LocalMedia;
 import com.luck.picture.lib.tools.PictureFileUtils;
-import com.syanpicker.GlideEngine;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
@@ -287,6 +290,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openGallery(PictureMimeType.ofVideo())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
+                .loadImageEngine(GlideEngine.createGlideEngine())
                 .selectionMedia(selectList) // 当前已选中的视频 List
                 .openClickSound(false)// 是否开启点击声音 true or false
                 .isCamera(isCamera)// 是否显示拍照按钮 true or false
@@ -330,6 +334,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             selectList = mVideoSelectList;
         }
         WritableArray videoList = new WritableNativeArray();
+
         for (LocalMedia media : mVideoSelectList) {
             if (TextUtils.isEmpty(media.getPath())) {
                 continue;
@@ -338,11 +343,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             DecimalFormat df = new DecimalFormat("#.00");
             WritableMap videoMap = new WritableNativeMap();
 
-            // File Path https://stackoverflow.com/questions/3401579/get-filename-and-path-from-uri-from-mediastore
-            Context ctx = this.reactContext.getApplicationContext();
-            String filePath = Utils.getPathFromURI(ctx, media.getPath());
+            Boolean isAndroidQ = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
+            String filePath = isAndroidQ ? media.getAndroidQToPath() : media.getPath();
 
-            videoMap.putString("uri", filePath);
+            videoMap.putString("uri", "file://" + filePath);
+            videoMap.putString("coverUri", "file://" + this.getVideoCover(filePath));
             videoMap.putString("fileName", new File(media.getPath()).getName());
             videoMap.putDouble("size", new File(media.getPath()).length());
             videoMap.putDouble("duration", media.getDuration() / 1000.00);
@@ -432,6 +437,36 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         return "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP);
     }
 
+
+    /**
+     * 获取视频封面图片
+     * @param videoPath 视频地址
+     */
+    private String getVideoCover(String videoPath) {
+        try {
+            MediaMetadataRetriever retriever = new MediaMetadataRetriever();
+            retriever.setDataSource(videoPath);
+            Bitmap bitmap = retriever.getFrameAtTime();
+            FileOutputStream outStream = null;
+            final String uuid = "thumb-" + UUID.randomUUID().toString();
+            final String localThumb = reactContext.getExternalCacheDir().getAbsolutePath() + "/" + uuid + ".jpg";
+            outStream = new FileOutputStream(new File(localThumb));
+            bitmap.compress(Bitmap.CompressFormat.JPEG, 30, outStream);
+            outStream.close();
+            retriever.release();
+
+            return localThumb;
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } catch (Exception err) {
+            err.printStackTrace();
+        }
+
+        return null;
+    }
+
     /**
      * 选择照片成功时触发
      *
@@ -461,5 +496,4 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             this.mPickerPromise.reject(SY_SELECT_IMAGE_FAILED_CODE, message);
         }
     }
-
 }
