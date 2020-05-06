@@ -10,6 +10,8 @@ import android.os.Build;
 import android.text.TextUtils;
 import android.util.Base64;
 
+import androidx.core.os.BuildCompat;
+
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.BaseActivityEventListener;
 import com.facebook.react.bridge.Callback;
@@ -343,7 +345,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             DecimalFormat df = new DecimalFormat("#.00");
             WritableMap videoMap = new WritableNativeMap();
 
-            Boolean isAndroidQ = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q;
+            Boolean isAndroidQ = BuildCompat.isAtLeastQ();
             String filePath = isAndroidQ ? media.getAndroidQToPath() : media.getPath();
 
             videoMap.putString("uri", "file://" + filePath);
