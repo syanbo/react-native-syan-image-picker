@@ -6,11 +6,8 @@ import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.media.MediaMetadataRetriever;
-import android.os.Build;
 import android.text.TextUtils;
 import android.util.Base64;
-
-import androidx.core.os.BuildCompat;
 
 import com.facebook.react.bridge.ActivityEventListener;
 import com.facebook.react.bridge.BaseActivityEventListener;
@@ -29,6 +26,7 @@ import com.luck.picture.lib.config.PictureConfig;
 import com.luck.picture.lib.config.PictureMimeType;
 import com.luck.picture.lib.entity.LocalMedia;
 import com.luck.picture.lib.tools.PictureFileUtils;
+import com.luck.picture.lib.tools.SdkVersionUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.File;
@@ -37,7 +35,6 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -175,6 +172,8 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             modeValue = 2;
         }
 
+        Boolean isAndroidQ = SdkVersionUtils.checkedAndroid_Q();
+
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openGallery(PictureMimeType.ofImage())//全部.PictureMimeType.ofAll()、图片.ofImage()、视频.ofVideo()、音频.ofAudio()
@@ -187,7 +186,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .previewVideo(false)// 是否可预览视频 true or false
                 .enablePreviewAudio(false) // 是否可播放音频 true or false
                 .isCamera(isCamera)// 是否显示拍照按钮 true or false
-                .imageFormat(PictureMimeType.PNG)// 拍照保存图片格式后缀,默认jpeg
+                .imageFormat(isAndroidQ ? PictureMimeType.PNG_Q : PictureMimeType.PNG)// 拍照保存图片格式后缀,默认jpeg
                 .isZoomAnim(true)// 图片列表点击 缩放效果 默认true
                 .sizeMultiplier(0.5f)// glide 加载图片大小 0~1之间 如设置 .glideOverride()无效
                 .enableCrop(isCrop)// 是否裁剪 true or false
@@ -228,11 +227,13 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         int minimumCompressSize = this.cameraOptions.getInt("minimumCompressSize");
         int quality = this.cameraOptions.getInt("quality");
 
+        Boolean isAndroidQ = SdkVersionUtils.checkedAndroid_Q();
+
         Activity currentActivity = getCurrentActivity();
         PictureSelector.create(currentActivity)
                 .openCamera(PictureMimeType.ofImage())
                 .loadImageEngine(GlideEngine.createGlideEngine())
-                .imageFormat(PictureMimeType.PNG)// 拍照保存图片格式后缀,默认jpeg
+                .imageFormat(isAndroidQ ? PictureMimeType.PNG_Q : PictureMimeType.PNG)// 拍照保存图片格式后缀,默认jpeg
                 .enableCrop(isCrop)// 是否裁剪 true or false
                 .compress(compress)// 是否压缩 true or false
                 .glideOverride(160, 160)// int glide 加载宽高，越小图片列表越流畅，但会影响列表图片浏览的清晰度
@@ -342,10 +343,9 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 continue;
             }
 
-            DecimalFormat df = new DecimalFormat("#.00");
             WritableMap videoMap = new WritableNativeMap();
 
-            Boolean isAndroidQ = BuildCompat.isAtLeastQ();
+            Boolean isAndroidQ = SdkVersionUtils.checkedAndroid_Q();
             String filePath = isAndroidQ ? media.getAndroidQToPath() : media.getPath();
 
             videoMap.putString("uri", "file://" + filePath);

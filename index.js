@@ -159,10 +159,3 @@ export default {
         return RNSyanImagePicker.openVideoPicker(optionObj, callback)
     }
 };
-
-// typedef NS_ENUM(NSInteger, PHAssetMediaType) {
-//         PHAssetMediaTypeUnknown = 0,
-//         PHAssetMediaTypeImage   = 1,
-//         PHAssetMediaTypeVideo   = 2,
-//         PHAssetMediaTypeAudio   = 3,
-// };

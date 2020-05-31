@@ -11,8 +11,8 @@
 基于已有原生第三方框架封装的多图片选择组件，适用于 React Native App。
 
 ### 原生框架依赖
-* Android： [PictureSelector 2.5.2](https://github.com/LuckSiege/PictureSelector) - by [LuckSiege](https://github.com/LuckSiege)
-* iOS：[TZImagePickerController 3.3.1](https://github.com/banchichen/TZImagePickerController) - by [banchichen](https://github.com/banchichen)
+* Android： [PictureSelector](https://github.com/LuckSiege/PictureSelector) - by [LuckSiege](https://github.com/LuckSiege)
+* iOS：[TZImagePickerController](https://github.com/banchichen/TZImagePickerController) - by [banchichen](https://github.com/banchichen)
 
 ### 功能特点
 * 支持 iOS、Android 两端
@@ -25,7 +25,7 @@
 
 ### Live
 
-![](http://oy5rz3rfs.bkt.clouddn.com/github/syan-01.gif)
+![](http://cdn.seebug.xyz/github/syan-01.gif)
 
 
 ## 安装使用
@@ -69,56 +69,24 @@ react-native link react-native-syan-image-picker
 
 #### Android
 
-##### 1、在 `build.gradle` 中添加 `maven { url "https://jitpack.io" }` 和`Google` 配置：
-```gradle
-buildscript {
-    repositories {
-        jcenter()
-        maven {
-            url 'https://maven.google.com/'
-            name 'Google'
-        }
-        google()
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:3.1.0'
-
-        // NOTE: Do not place your application dependencies here; they belong
-        // in the individual module build.gradle files
-    }
-}
-allprojects {
-    repositories {
-        mavenLocal()
-        jcenter()
-        maven { url "https://jitpack.io" }
-        maven {
-            // All of React Native (JS, Obj-C sources, Android binaries) is installed from npm
-            url "$rootDir/../node_modules/react-native/android"
-        }
-    }
-}
-```
-
-##### 2、在 `AndroidManifest.xml` 中添加权限：
+##### 1、在 `AndroidManifest.xml` 中添加权限：
 ```xml
 <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />
 <uses-permission android:name="android.permission.CAMERA" />
 ```
 
-##### 3、更新到 PictureSelector 2.2.0 需要修改：
+##### 2、更新到 PictureSelector需要修改minSdkVersion：
 ```gradle
 // app/build.gradle
 
 android {
-    compileSdkVersion 26
-    buildToolsVersion "26.0.3"
+    minSdkVersion = 19
     ...
 }
 ```
 
-##### 4、拍照前动态获取权限
+##### 3、拍照前动态获取权限
 ```js
 requestPermission = async () => {
         try {
@@ -145,8 +113,9 @@ requestPermission = async () => {
     };
 ```
 
-##### 5、同时使用 fast-image 需要使用glide 版本
+##### 4、同时使用 fast-image 需要使用glide 版本
 在build.gradle的buildscript，ext下新增glideVersion指定和fast-image一样的版本
+新增 pictureVersion 自定义picture_library版本
  
 ### 注意安装运行报错
 1. 检查自动 link 是否成功 
@@ -182,7 +151,7 @@ requestPermission = async () => {
 
 ## 运行示例
 
-相关 Demo 见 [ImagePickerExample](https://github.com/syanbo/ImagePickerExample)。
+相关 Demo 见 [ImagePickerExample](https://github.com/syanbo/RNPlayground)。
 
 ## 配置参数说明
 组件调用时，支持传入一个 `options` 对象，可设置的属性如下：
