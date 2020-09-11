@@ -164,6 +164,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         int minimumCompressSize = this.cameraOptions.getInt("minimumCompressSize");
         int quality = this.cameraOptions.getInt("quality");
         boolean isWeChatStyle = this.cameraOptions.getBoolean("isWeChatStyle");
+        boolean showSelectedIndex = this.cameraOptions.getBoolean("showSelectedIndex");
 
         int modeValue;
         if (imageCount == 1) {
@@ -207,6 +208,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .scaleEnabled(scaleEnabled)// 裁剪是否可放大缩小图片 true or false
                 .selectionMedia(selectList) // 当前已选中的图片 List
                 .isWeChatStyle(isWeChatStyle)
+                .theme(showSelectedIndex ? R.style.picture_WeChat_style : 0)
                 .forResult(PictureConfig.CHOOSE_REQUEST); //结果回调onActivityResult code
     }
 
@@ -226,6 +228,8 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         boolean scaleEnabled = this.cameraOptions.getBoolean("scaleEnabled");
         int minimumCompressSize = this.cameraOptions.getInt("minimumCompressSize");
         int quality = this.cameraOptions.getInt("quality");
+        boolean isWeChatStyle = this.cameraOptions.getBoolean("isWeChatStyle");
+        boolean showSelectedIndex = this.cameraOptions.getBoolean("showSelectedIndex");
 
         Boolean isAndroidQ = SdkVersionUtils.checkedAndroid_Q();
 
@@ -249,6 +253,8 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .synOrAsy(true)//同步true或异步false 压缩 默认同步
                 .rotateEnabled(rotateEnabled) // 裁剪是否可旋转图片 true or false
                 .scaleEnabled(scaleEnabled)// 裁剪是否可放大缩小图片 true or false
+                .isWeChatStyle(isWeChatStyle)
+                .theme(showSelectedIndex ? R.style.picture_WeChat_style : 0)
                 .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
     }
 

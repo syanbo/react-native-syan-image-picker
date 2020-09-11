@@ -119,6 +119,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     BOOL isRecordSelected = [options sy_boolForKey:@"isRecordSelected"];
     BOOL allowPickingOriginalPhoto = [options sy_boolForKey:@"allowPickingOriginalPhoto"];
     BOOL sortAscendingByModificationDate = [options sy_boolForKey:@"sortAscendingByModificationDate"];
+    BOOL showSelectedIndex = [options sy_boolForKey:@"showSelectedIndex"];
     NSInteger CropW      = [options sy_integerForKey:@"CropW"];
     NSInteger CropH      = [options sy_integerForKey:@"CropH"];
     NSInteger circleCropRadius = [options sy_integerForKey:@"circleCropRadius"];
@@ -140,6 +141,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     imagePickerVc.alwaysEnableDoneBtn = YES;
     imagePickerVc.allowCrop = isCrop;   // 裁剪
     imagePickerVc.autoDismiss = NO;
+    imagePickerVc.showSelectedIndex = showSelectedIndex;
     imagePickerVc.modalPresentationStyle = UIModalPresentationFullScreen;
 
     if (isRecordSelected) {
@@ -211,6 +213,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     BOOL allowPickingOriginalPhoto = [self.cameraOptions sy_boolForKey:@"allowPickingOriginalPhoto"];
     BOOL allowPickingMultipleVideo = [self.cameraOptions sy_boolForKey:@"allowPickingMultipleVideo"];
     BOOL sortAscendingByModificationDate = [self.cameraOptions sy_boolForKey:@"sortAscendingByModificationDate"];
+    BOOL showSelectedIndex = [self.cameraOptions sy_boolForKey:@"showSelectedIndex"];
     NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
     NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
     NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
@@ -222,6 +225,7 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     imagePickerVc.allowPickingGif = isGif; // 允许GIF
     imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
     imagePickerVc.allowPickingVideo = NO; // 不允许视频
+    imagePickerVc.showSelectedIndex = showSelectedIndex;
     imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
     imagePickerVc.sortAscendingByModificationDate = sortAscendingByModificationDate;
     imagePickerVc.alwaysEnableDoneBtn = YES;

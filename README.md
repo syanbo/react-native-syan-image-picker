@@ -175,7 +175,7 @@ enableBase64        | bool | 是      | false  | 是否返回base64编码，默�
 freeStyleCropEnabled        | bool | 是      | false  | 裁剪框是否可拖拽（Android）
 rotateEnabled        | bool | 是      | true  | 裁剪是否可旋转图片（Android）
 scaleEnabled        | bool | 是      | true  | 裁剪是否可放大缩小图片（Android）
-
+showSelectedIndex        | bool | 是      | false  | 是否显示序号
 
 
 ## 返回结果说明
@@ -345,6 +345,10 @@ Android 返回结果：
 ```javascript
 SYImagePicker.deleteCache();
 ```
+
+### 版本记录
+
+- 0.4.10 新增showSelectedIndex参数，是否显示选中序号
 
 ## 帮助
 加入 React-Native QQ群 397885169
