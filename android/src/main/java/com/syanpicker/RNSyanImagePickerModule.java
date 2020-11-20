@@ -165,6 +165,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         int quality = this.cameraOptions.getInt("quality");
         boolean isWeChatStyle = this.cameraOptions.getBoolean("isWeChatStyle");
         boolean showSelectedIndex = this.cameraOptions.getBoolean("showSelectedIndex");
+        boolean compressFocusAlpha = this.cameraOptions.getBoolean("compressFocusAlpha");
 
         int modeValue;
         if (imageCount == 1) {
@@ -209,6 +210,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .selectionMedia(selectList) // 当前已选中的图片 List
                 .isWeChatStyle(isWeChatStyle)
                 .theme(showSelectedIndex ? R.style.picture_WeChat_style : 0)
+                .compressFocusAlpha(compressFocusAlpha)
                 .forResult(PictureConfig.CHOOSE_REQUEST); //结果回调onActivityResult code
     }
 
@@ -230,6 +232,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         int quality = this.cameraOptions.getInt("quality");
         boolean isWeChatStyle = this.cameraOptions.getBoolean("isWeChatStyle");
         boolean showSelectedIndex = this.cameraOptions.getBoolean("showSelectedIndex");
+        boolean compressFocusAlpha = this.cameraOptions.getBoolean("compressFocusAlpha");
 
         Boolean isAndroidQ = SdkVersionUtils.checkedAndroid_Q();
 
@@ -255,6 +258,7 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                 .scaleEnabled(scaleEnabled)// 裁剪是否可放大缩小图片 true or false
                 .isWeChatStyle(isWeChatStyle)
                 .theme(showSelectedIndex ? R.style.picture_WeChat_style : 0)
+                .compressFocusAlpha(compressFocusAlpha)
                 .forResult(PictureConfig.CHOOSE_REQUEST);//结果回调onActivityResult code
     }
 
@@ -396,7 +400,6 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
         if (media.isCut()) {
             path = media.getCutPath();
         }
-
         BitmapFactory.Options options = new BitmapFactory.Options();
         options.inJustDecodeBounds = true;
         BitmapFactory.decodeFile(path, options);

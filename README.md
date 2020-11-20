@@ -169,6 +169,8 @@ showCropCircle         | bool | 是      | false  | 是否显示圆形裁剪区�
 circleCropRadius         | float | 是      | screenW * 0.5  | 圆形裁剪半径，默认屏幕宽度一半
 showCropFrame         | bool | 是      | true  | 是否显示裁剪区域
 showCropGrid         | bool | 是      | false  | 是否隐藏裁剪区域网格
+compress        | bool | 是      | true  | 是否开启压缩（不开启压缩部分图片属性无法获得
+compressFocusAlpha        | bool | 是      | false  | 压缩时保留图片透明度（开启后png压缩后尺寸会变大但是透明度会保留
 quality         | int | 是      | 90  | 压缩质量(安卓无效，固定鲁班压缩)
 minimumCompressSize | int | 是 | 100 | 小于100kb的图片不压缩（Android）
 enableBase64        | bool | 是      | false  | 是否返回base64编码，默认不返回

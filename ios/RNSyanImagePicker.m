@@ -47,7 +47,7 @@ RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options
                          callback:(RCTResponseSenderBlock)callback) {
-	self.cameraOptions = options;
+    self.cameraOptions = options;
     self.callback = callback;
     self.resolveBlock = nil;
     self.rejectBlock = nil;
@@ -58,7 +58,7 @@ RCT_REMAP_METHOD(asyncShowImagePicker,
                  options:(NSDictionary *)options
                  showImagePickerResolver:(RCTPromiseResolveBlock)resolve
                  rejecter:(RCTPromiseRejectBlock)reject) {
-	self.cameraOptions = options;
+    self.cameraOptions = options;
     self.resolveBlock = resolve;
     self.rejectBlock = reject;
     self.callback = nil;
@@ -452,14 +452,15 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     NSString *fileExtension    = [filename pathExtension];
     NSMutableString *filePath = [NSMutableString string];
     BOOL isPNG = [fileExtension hasSuffix:@"PNG"] || [fileExtension hasSuffix:@"png"];
-
+    BOOL compressFocusAlpha = [self.cameraOptions sy_boolForKey:@"compressFocusAlpha"];
+    
     if (isPNG) {
         [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@", NSTemporaryDirectory(), filename]];
     } else {
         [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@.jpg", NSTemporaryDirectory(), [filename stringByDeletingPathExtension]]];
     }
-
-    NSData *writeData = isPNG ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality/100);
+    //UIImagePNGRepresentation压缩压缩率太低了可以使用 pngquant
+    NSData *writeData = (isPNG && compressFocusAlpha) ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality/100);
     [writeData writeToFile:filePath atomically:YES];
 
     photo[@"uri"]       = filePath;
@@ -469,7 +470,11 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     photo[@"size"] = @(size);
     photo[@"mediaType"] = @(phAsset.mediaType);
     if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
-        photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
+        if(isPNG){
+            photo[@"base64"] = [NSString stringWithFormat:@"data:image/png;base64,%@", [writeData base64EncodedStringWithOptions:0]];
+        }else{
+            photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
+        }
     }
 
     return photo;
@@ -485,15 +490,15 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     UIImage *image = nil;
     NSData *writeData = nil;
     NSMutableString *filePath = [NSMutableString string];
-
     BOOL isPNG = [fileExtension hasSuffix:@"PNG"] || [fileExtension hasSuffix:@"png"];
-
+    BOOL compressFocusAlpha = [self.cameraOptions sy_boolForKey:@"compressFocusAlpha"];
+    
     if (isGIF) {
         image = [UIImage sd_tz_animatedGIFWithData:data];
         writeData = data;
     } else {
         image = [UIImage imageWithData: data];
-        writeData = isPNG ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality/100);
+        writeData = (isPNG && compressFocusAlpha) ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality/100);
     }
 
     if (isPNG || isGIF) {
@@ -511,7 +516,11 @@ RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseS
     photo[@"size"]      = @(size);
     photo[@"mediaType"] = @(phAsset.mediaType);
     if ([self.cameraOptions sy_boolForKey:@"enableBase64"] && !isGIF) {
-        photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
+        if(isPNG){
+            photo[@"base64"] = [NSString stringWithFormat:@"data:image/png;base64,%@", [writeData base64EncodedStringWithOptions:0]];
+        }else{
+            photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
+        }
     }
 
     return photo;
