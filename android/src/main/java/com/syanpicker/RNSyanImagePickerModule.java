@@ -445,6 +445,9 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
             e.printStackTrace();
         }
         bytes = output.toByteArray();
+        if(absoluteFilePath.toLowerCase().endsWith("png")){
+          return "data:image/png;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP);
+        }
         return "data:image/jpeg;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP);
     }
 
