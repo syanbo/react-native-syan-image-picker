@@ -342,51 +342,55 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
 
     private void onGetVideoResult(Intent data) {
         List<LocalMedia> mVideoSelectList = PictureSelector.obtainMultipleResult(data);
-        boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
-        if (!mVideoSelectList.isEmpty() && isRecordSelected) {
-            selectList = mVideoSelectList;
-        }
-        WritableArray videoList = new WritableNativeArray();
+        if (cameraOptions != null) {
+            boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
+            if (!mVideoSelectList.isEmpty() && isRecordSelected) {
+                selectList = mVideoSelectList;
+            }
+            WritableArray videoList = new WritableNativeArray();
 
-        for (LocalMedia media : mVideoSelectList) {
-            if (TextUtils.isEmpty(media.getPath())) {
-                continue;
+            for (LocalMedia media : mVideoSelectList) {
+                if (TextUtils.isEmpty(media.getPath())) {
+                    continue;
+                }
+
+                WritableMap videoMap = new WritableNativeMap();
+
+                Boolean isAndroidQ = SdkVersionUtils.checkedAndroid_Q();
+                String filePath = isAndroidQ ? media.getAndroidQToPath() : media.getPath();
+
+                videoMap.putString("uri", "file://" + filePath);
+                videoMap.putString("coverUri", "file://" + this.getVideoCover(filePath));
+                videoMap.putString("fileName", new File(media.getPath()).getName());
+                videoMap.putDouble("size", new File(media.getPath()).length());
+                videoMap.putDouble("duration", media.getDuration() / 1000.00);
+                videoMap.putInt("width", media.getWidth());
+                videoMap.putInt("height", media.getHeight());
+                videoMap.putString("type", "video");
+                videoMap.putString("mime", media.getMimeType());
+                videoList.pushMap(videoMap);
             }
 
-            WritableMap videoMap = new WritableNativeMap();
-
-            Boolean isAndroidQ = SdkVersionUtils.checkedAndroid_Q();
-            String filePath = isAndroidQ ? media.getAndroidQToPath() : media.getPath();
-
-            videoMap.putString("uri", "file://" + filePath);
-            videoMap.putString("coverUri", "file://" + this.getVideoCover(filePath));
-            videoMap.putString("fileName", new File(media.getPath()).getName());
-            videoMap.putDouble("size", new File(media.getPath()).length());
-            videoMap.putDouble("duration", media.getDuration() / 1000.00);
-            videoMap.putInt("width", media.getWidth());
-            videoMap.putInt("height", media.getHeight());
-            videoMap.putString("type", "video");
-            videoMap.putString("mime", media.getMimeType());
-            videoList.pushMap(videoMap);
+            invokeSuccessWithResult(videoList);
         }
-
-        invokeSuccessWithResult(videoList);
     }
 
     private void onGetResult(Intent data) {
         List<LocalMedia> tmpSelectList = PictureSelector.obtainMultipleResult(data);
-        boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
-        if (!tmpSelectList.isEmpty() && isRecordSelected) {
-            selectList = tmpSelectList;
-        }
+        if (cameraOptions != null) {
+            boolean isRecordSelected = cameraOptions.getBoolean("isRecordSelected");
+            if (!tmpSelectList.isEmpty() && isRecordSelected) {
+                selectList = tmpSelectList;
+            }
 
-        WritableArray imageList = new WritableNativeArray();
-        boolean enableBase64 = cameraOptions.getBoolean("enableBase64");
+            WritableArray imageList = new WritableNativeArray();
+            boolean enableBase64 = cameraOptions.getBoolean("enableBase64");
 
-        for (LocalMedia media : tmpSelectList) {
-            imageList.pushMap(getImageResult(media, enableBase64));
+            for (LocalMedia media : tmpSelectList) {
+                imageList.pushMap(getImageResult(media, enableBase64));
+            }
+            invokeSuccessWithResult(imageList);
         }
-        invokeSuccessWithResult(imageList);
     }
 
     private WritableMap getImageResult(LocalMedia media, Boolean enableBase64) {
