@@ -25,6 +25,7 @@ const defaultOptions = {
     rotateEnabled: true,       // 裁剪是否可旋转图片
     scaleEnabled: true,        // 裁剪是否可放大缩小图片
     compress: true,
+    compressFocusAlpha:false,   //压缩png保留通明度
     minimumCompressSize: 100,  // 小于100kb的图片不压缩
     quality: 90,               // 压缩质量
     enableBase64: false,       // 是否返回base64编码，默认不返回

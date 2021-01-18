@@ -15,6 +15,7 @@ export interface ImagePickerOption {
     rotateEnabled: boolean,       // 裁剪是否可旋转图片
     scaleEnabled: boolean,        // 裁剪是否可放大缩小图片
     compress: boolean,
+    compressFocusAlpha:boolean,   //压缩png保留通明度
     minimumCompressSize: number,  // 小于100kb的图片不压缩
     quality: number,               // 压缩质量
     enableBase64: boolean,       // 是否返回base64编码，默认不返回
