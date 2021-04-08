@@ -1,10 +1,15 @@
-
 {
   "name": "react-native-syan-image-picker",
   "version": "0.4.11",
   "description": "React-Native 多图片选择 支持裁剪 压缩",
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "source": "src/index",
+  "files": [
+    "src",
+    "ios",
+    "android"
+  ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "pu": "npm publish"
@@ -19,5 +24,32 @@
     "Photo"
   ],
   "author": "syan",
-  "license": "MIT"
+  "license": "MIT",
+  "devDependencies": {
+    "@release-it/conventional-changelog": "^2.0.1",
+    "release-it": "^14.5.1"
+  },
+  "release-it": {
+    "git": {
+      "commitMessage": "chore: release ${version}",
+      "tagName": "v${version}"
+    },
+    "npm": {
+      "publish": true
+    },
+    "github": {
+      "release": true
+    },
+    "plugins": {
+      "@release-it/conventional-changelog": {
+        "preset": "angular",
+        "infile": "CHANGELOG.md"
+      }
+    }
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  }
 }

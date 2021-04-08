@@ -46,6 +46,7 @@ react-native link react-native-syan-image-picker
 ### 其他配置
 #### iOS
 ##### 1、添加原生框架中所需的 `bundle` 文件：
+RN版本0.60+使用 pod 不需要如下配置
 
 - TARGETS -> Build Phases -> Copy Bundle Resources
 点击"+"按钮，在弹出的窗口中点击“Add Other”按钮，选择
@@ -66,6 +67,12 @@ react-native link react-native-syan-image-picker
 
 ##### 3、中文适配：    
 - 添加中文 PROJECT -> Info -> Localizations 点击"+"按钮，选择Chinese(Simplified)
+
+##### 4、更新TZImagePickerController版本
+
+```
+pod update TZImagePickerController
+```
 
 #### Android
 
@@ -123,7 +130,7 @@ requestPermission = async () => {
 3. 使用 Android Studio 打开项目检查 Gradle 是否同步完成
 4. 可以运行 [ImagePickerExample](https://github.com/syanbo/ImagePickerExample) 该 Demo，测试 Android 7.0，6.0 拍照选图都为正常
 
-## link失败手动添加
+## link失败手动添加（<0.60）
 ### iOS
 
 1. In XCode, in the project navigator, right click `Libraries` ➜ `Add Files to [your project's name]`
