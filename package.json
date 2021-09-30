@@ -12,7 +12,8 @@
   ],
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "pu": "npm publish"
+    "pu": "npm publish",
+    "release": "release-it"
   },
   "keywords": [
     "react-native",

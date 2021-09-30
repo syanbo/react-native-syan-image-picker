@@ -25,7 +25,7 @@
 
 ### Live
 
-![](http://cdn.seebug.xyz/github/syan-01.gif)
+![](http://img.shaoyan.xyz/github/syan-01.gif)
 
 
 ## 安装使用
@@ -128,7 +128,6 @@ requestPermission = async () => {
 1. 检查自动 link 是否成功 
 2. 使用 Android Studio 查看 `MainApplication.java` 文件是否添加 `new RNSyanImagePickerPackage()`
 3. 使用 Android Studio 打开项目检查 Gradle 是否同步完成
-4. 可以运行 [ImagePickerExample](https://github.com/syanbo/ImagePickerExample) 该 Demo，测试 Android 7.0，6.0 拍照选图都为正常
 
 ## link失败手动添加（<0.60）
 ### iOS
@@ -155,10 +154,6 @@ requestPermission = async () => {
   	```gradle
       compile project(':react-native-syan-image-picker')
   	```
-
-## 运行示例
-
-相关 Demo 见 [ImagePickerExample](https://github.com/syanbo/RNPlayground)。
 
 ## 配置参数说明
 组件调用时，支持传入一个 `options` 对象，可设置的属性如下：
