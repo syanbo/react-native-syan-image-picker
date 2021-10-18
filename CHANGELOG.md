@@ -1,3 +1,11 @@
+## [0.5.1](https://github.com/syanbo/react-native-syan-image-picker/compare/v0.5.0...v0.5.1) (2021-10-18)
+
+
+### Bug Fixes
+
+* s.source ([33ae00b](https://github.com/syanbo/react-native-syan-image-picker/commit/33ae00be206f76c3a396fa98de19eb191bbc999d))
+* 删除多余的filePath ([e5711bc](https://github.com/syanbo/react-native-syan-image-picker/commit/e5711bc4e4376064c45430abb5e64ad439c81602))
+
 # 0.5.0 (2021-09-30)
 
 
