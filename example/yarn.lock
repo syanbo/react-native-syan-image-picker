@@ -5190,10 +5190,10 @@ react-native-codegen@^0.0.6:
     jscodeshift "^0.11.0"
     nullthrows "^1.1.1"
 
-react-native-syan-image-picker@^0.4.11:
-  version "0.4.11"
-  resolved "https://registry.npmjs.org/react-native-syan-image-picker/-/react-native-syan-image-picker-0.4.11.tgz#1186368fd23a73f38852384943a534d00f41033f"
-  integrity sha512-kRtdkVTglsudpfcmN1DupVGvmt/b0nrowqWEf4j6A3xPb+gRlzG2AmepulKcqtCchOwcQCavIfDn9/EQ3WvQaw==
+react-native-syan-image-picker@^0.5.3:
+  version "0.5.3"
+  resolved "https://registry.npmjs.org/react-native-syan-image-picker/-/react-native-syan-image-picker-0.5.3.tgz#4d1f164449abac11f60cde337ad1ac22ef554b19"
+  integrity sha512-jDHKiv6jPrC3Dslhq2tDjqYC27HE0sNRzpthOY1//THgQpJ0Ht7B6EHvllWVaMw0V41kFVMixLxVQTMu/V7RSw==
 
 react-native@0.64.0:
   version "0.64.0"
