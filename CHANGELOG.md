@@ -1,3 +1,10 @@
+## [0.5.3](https://github.com/syanbo/react-native-syan-image-picker/compare/v0.5.1...v0.5.3) (2021-10-18)
+
+
+### Bug Fixes
+
+* 找回npm丢失的.podspec文件 ([d774b7a](https://github.com/syanbo/react-native-syan-image-picker/commit/d774b7a7fdccbdfb7deecb258481163489a1d844))
+
 ## [0.5.1](https://github.com/syanbo/react-native-syan-image-picker/compare/v0.5.0...v0.5.1) (2021-10-18)
 
 
