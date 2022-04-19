@@ -123,6 +123,16 @@ requestPermission = async () => {
 ##### 4、同时使用 fast-image 需要使用glide 版本
 在build.gradle的buildscript，ext下新增glideVersion指定和fast-image一样的版本
 新增 pictureVersion 自定义picture_library版本
+
+##### 5、同时使用 react-native-image-crop-picker
+- 修改react-native-image-crop-picker/android/build.gradle
+`implementation 'com.github.yalantis:ucrop:2.2.6-native'` 替换为 `implementation 'io.github.lucksiege:pictureselector:v2.7.3-rc08'`
+
+- 修改react-native-image-crop-picker/android/src/main/java/com/reactnative/ivpusic/imagepicker/PickerModule.java
+`uCrop.start(activity);` 替换为 `uCrop.start(activity, UCrop.REQUEST_CROP);`
+
+推荐使用 patch-package 对刚刚修改进行 patch
+执行`patch-package react-native-image-crop-picker`
  
 ### 注意安装运行报错
 1. 检查自动 link 是否成功 
