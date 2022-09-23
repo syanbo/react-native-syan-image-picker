@@ -366,6 +366,11 @@ public class RNSyanImagePickerModule extends ReactContextBaseJavaModule {
                    filePath = media.getRealPath();
                }
 
+                String temp = "" + filePath;
+                if (temp.equals("null")) {
+                    filePath = media.getRealPath();
+                }
+
                 videoMap.putString("uri", "file://" + filePath);
                 videoMap.putString("coverUri", "file://" + this.getVideoCover(filePath));
                 videoMap.putString("fileName", new File(media.getPath()).getName());
