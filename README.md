@@ -25,7 +25,7 @@
 
 ### Live
 
-![](http://img.shaoyan.xyz/github/syan-01.gif)
+![](http://cdn.seebug.xyz/github/syan-01.gif)
 
 
 ## 安装使用
@@ -46,7 +46,6 @@ react-native link react-native-syan-image-picker
 ### 其他配置
 #### iOS
 ##### 1、添加原生框架中所需的 `bundle` 文件：
-RN版本0.60+使用 pod 不需要如下配置
 
 - TARGETS -> Build Phases -> Copy Bundle Resources
 点击"+"按钮，在弹出的窗口中点击“Add Other”按钮，选择
@@ -67,12 +66,6 @@ RN版本0.60+使用 pod 不需要如下配置
 
 ##### 3、中文适配：    
 - 添加中文 PROJECT -> Info -> Localizations 点击"+"按钮，选择Chinese(Simplified)
-
-##### 4、更新TZImagePickerController版本
-
-```
-pod update TZImagePickerController
-```
 
 #### Android
 
@@ -123,23 +116,14 @@ requestPermission = async () => {
 ##### 4、同时使用 fast-image 需要使用glide 版本
 在build.gradle的buildscript，ext下新增glideVersion指定和fast-image一样的版本
 新增 pictureVersion 自定义picture_library版本
-
-##### 5、同时使用 react-native-image-crop-picker
-- 修改react-native-image-crop-picker/android/build.gradle
-`implementation 'com.github.yalantis:ucrop:2.2.6-native'` 替换为 `implementation 'io.github.lucksiege:pictureselector:v2.7.3-rc08'`
-
-- 修改react-native-image-crop-picker/android/src/main/java/com/reactnative/ivpusic/imagepicker/PickerModule.java
-`uCrop.start(activity);` 替换为 `uCrop.start(activity, UCrop.REQUEST_CROP);`
-
-推荐使用 patch-package 对刚刚修改进行 patch
-执行`patch-package react-native-image-crop-picker`
  
 ### 注意安装运行报错
 1. 检查自动 link 是否成功 
 2. 使用 Android Studio 查看 `MainApplication.java` 文件是否添加 `new RNSyanImagePickerPackage()`
 3. 使用 Android Studio 打开项目检查 Gradle 是否同步完成
+4. 可以运行 [ImagePickerExample](https://github.com/syanbo/ImagePickerExample) 该 Demo，测试 Android 7.0，6.0 拍照选图都为正常
 
-## link失败手动添加（<0.60）
+## link失败手动添加
 ### iOS
 
 1. In XCode, in the project navigator, right click `Libraries` ➜ `Add Files to [your project's name]`
@@ -164,6 +148,10 @@ requestPermission = async () => {
   	```gradle
       compile project(':react-native-syan-image-picker')
   	```
+
+## 运行示例
+
+相关 Demo 见 [ImagePickerExample](https://github.com/syanbo/RNPlayground)。
 
 ## 配置参数说明
 组件调用时，支持传入一个 `options` 对象，可设置的属性如下：
