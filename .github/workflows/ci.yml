@@ -1,0 +1,109 @@
+name: CI
+
+on:
+  push:
+    branches: [master, v1]
+  pull_request:
+  schedule:
+    # 每周一次。iOS 构建放在这里而不是每次 push —— macOS runner 昂贵，
+    # 而周期性运行足以在用户之前发现"新版 Xcode 把我们搞挂了"。
+    - cron: '0 3 * * 1'
+
+jobs:
+  js:
+    name: 类型检查 · Lint · 测试
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx tsc --noEmit
+      - run: npx eslint src __tests__
+      - run: npx jest
+      - name: 校验打包产物
+        run: |
+          npx bob build
+          npm pack --dry-run
+
+  android-latest:
+    name: Android · 最新 RN（AGP 8 / Kotlin 2.1 / JDK 17）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: 安装依赖
+        run: |
+          npm ci --ignore-scripts
+          npm --prefix example install --ignore-scripts
+      # 压缩算法的一致性测试。读的是 __fixtures__/compress-plan.json ——
+      # 与 iOS 的 plan_test.m 同一份文件，任一端偏离都会在这里红。
+      # 纯 JVM，不需要模拟器。
+      - name: 单元测试
+        working-directory: example/android
+        run: ./gradlew :react-native-syan-image-picker:testDebugUnitTest --no-daemon
+      # 构建库本身即可，不必编整个 App —— 要守住的是库在这套工具链下能编过。
+      - name: 通过 example 构建库
+        working-directory: example/android
+        run: ./gradlew :react-native-syan-image-picker:assembleRelease --no-daemon
+
+  android-floor:
+    name: Android · RN 0.67.5 下限（AGP 7 / Kotlin 1.8 / JDK 11）
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+      # RN 0.71 之前不发布到 Maven Central，AAR 随 npm 包下发，
+      # 所以这一步是必须的，example-rn067/build.gradle 会把它当作 maven 仓库。
+      - name: 安装 react-native@0.67.5
+        run: npm --prefix example-rn067 install --ignore-scripts
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          # Kotlin 1.8.22 要求 Gradle >= 6.8.3；AGP 7.2 要求 >= 7.3.3。
+          gradle-version: '7.5'
+      - name: 用老工具链构建库
+        working-directory: example-rn067
+        run: gradle :react-native-syan-image-picker:assembleRelease --no-daemon
+
+  ios:
+    name: iOS
+    # macOS runner 昂贵：只在 PR 与每周定时任务上跑，不在每次 push 上跑。
+    if: github.event_name == 'pull_request' || github.event_name == 'schedule'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 安装依赖
+        run: |
+          npm ci --ignore-scripts
+          npm --prefix example install --ignore-scripts
+      # 秒级完成：被测的两个类只依赖 Foundation / ImageIO / CoreGraphics，
+      # 编成命令行程序直接跑，不需要模拟器或 Xcode test target。
+      - name: 原生单元测试
+        run: ./ios/tests/run.sh
+      - name: pod install
+        working-directory: example/ios
+        run: pod install
+      - name: 编译库的 pod target
+        working-directory: example/ios
+        run: |
+          xcodebuild -project Pods/Pods.xcodeproj \
+            -target RNSyanImagePicker \
+            -sdk iphonesimulator -configuration Debug \
+            build
