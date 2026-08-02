@@ -1,598 +1,781 @@
-
 #import "RNSyanImagePicker.h"
 
-#import "TZImageManager.h"
-#import "NSDictionary+SYSafeConvert.h"
-#import "TZImageCropManager.h"
-#import <AssetsLibrary/AssetsLibrary.h>
+#import <Photos/Photos.h>
+#import <objc/runtime.h>
 #import <React/RCTUtils.h>
+#import <TZImagePickerController/TZImagePickerController.h>
+
+#import "SYAssetExporter.h"
+#import "SYCameraCapture.h"
+#import "SYPermissions.h"
+#import "SYPickerOptions.h"
+
+/// 与 TS 侧 SyanErrorCode 一一对应。
+static NSString *const kSYCodePermissionDenied = @"PERMISSION_DENIED";
+static NSString *const kSYCodeExportFailed = @"EXPORT_FAILED";
+static NSString *const kSYCodeUnsupported = @"UNSUPPORTED";
+
+/// 标记某个 picker 是否已经被关闭过，避免重复 dismiss 把 completion 吞掉。
+static const void *kSYPickerDismissedKey = &kSYPickerDismissedKey;
+
+/// 与 TS 侧 SY_PROGRESS_EVENT 必须一致。
+static NSString *const kSYProgressEvent = @"RNSyanImagePicker:progress";
 
 @interface RNSyanImagePicker ()
-
-@property (nonatomic, strong) UIImagePickerController *imagePickerVc;
-@property (nonatomic, strong) NSDictionary *cameraOptions;
-/**
- 保存Promise的resolve block
- */
-@property (nonatomic, copy) RCTPromiseResolveBlock resolveBlock;
-/**
- 保存Promise的reject block
- */
-@property (nonatomic, copy) RCTPromiseRejectBlock rejectBlock;
-/**
- 保存回调的callback
- */
-@property (nonatomic, copy) RCTResponseSenderBlock callback;
-/**
- 保存选中的图片数组
- */
-@property (nonatomic, strong) NSMutableArray *selectedAssets;
+/// 有没有人在监听进度。没人听就一条事件也不发。
+@property (nonatomic, assign) BOOL hasProgressListeners;
 @end
 
 @implementation RNSyanImagePicker
 
-- (instancetype)init {
-    self = [super init];
-    if (self) {
-        _selectedAssets = [NSMutableArray array];
-    }
-    return self;
-}
-
-- (void)dealloc {
-    _selectedAssets = nil;
-}
-
 RCT_EXPORT_MODULE()
 
-RCT_EXPORT_METHOD(showImagePicker:(NSDictionary *)options
-                         callback:(RCTResponseSenderBlock)callback) {
-    self.cameraOptions = options;
-    self.callback = callback;
-    self.resolveBlock = nil;
-    self.rejectBlock = nil;
-    [self openImagePicker];
+#pragma mark - 进度事件
+
+- (NSArray<NSString *> *)supportedEvents {
+    return @[ kSYProgressEvent ];
 }
 
-RCT_REMAP_METHOD(asyncShowImagePicker,
-                 options:(NSDictionary *)options
-                 showImagePickerResolver:(RCTPromiseResolveBlock)resolve
-                 rejecter:(RCTPromiseRejectBlock)reject) {
-    self.cameraOptions = options;
-    self.resolveBlock = resolve;
-    self.rejectBlock = reject;
-    self.callback = nil;
-    [self openImagePicker];
+- (void)startObserving {
+    self.hasProgressListeners = YES;
 }
 
-RCT_EXPORT_METHOD(openCamera:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback) {
-    self.cameraOptions = options;
-    self.callback = callback;
-    self.resolveBlock = nil;
-    self.rejectBlock = nil;
-    [self takePhoto];
+- (void)stopObserving {
+    self.hasProgressListeners = NO;
 }
 
-RCT_REMAP_METHOD(asyncOpenCamera,
-                 options:(NSDictionary *)options
-                 openCameraResolver:(RCTPromiseResolveBlock)resolve
-                 rejecter:(RCTPromiseRejectBlock)reject) {
-  self.cameraOptions = options;
-  self.resolveBlock = resolve;
-  self.rejectBlock = reject;
-  self.callback = nil;
-  [self takePhoto];
-}
-
-RCT_EXPORT_METHOD(deleteCache) {
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    [fileManager removeItemAtPath: [NSString stringWithFormat:@"%@SyanImageCaches", NSTemporaryDirectory()] error:nil];
-}
-
-RCT_EXPORT_METHOD(removePhotoAtIndex:(NSInteger)index) {
-    if (self.selectedAssets && self.selectedAssets.count > index) {
-        [self.selectedAssets removeObjectAtIndex:index];
+/// 发一条进度。无人监听时直接返回 —— RCTEventEmitter 在没有监听者时发送会告警。
+- (void)emitProgressPhase:(NSString *)phase
+                completed:(NSUInteger)completed
+                    total:(NSUInteger)total {
+    if (!self.hasProgressListeners) {
+        return;
     }
+    [self sendEventWithName:kSYProgressEvent
+                       body:@{
+                           @"phase" : phase,
+                           @"completed" : @(completed),
+                           @"total" : @(total),
+                       }];
 }
 
-RCT_EXPORT_METHOD(removeAllPhoto) {
-    if (self.selectedAssets) {
-        [self.selectedAssets removeAllObjects];
-    }
+/**
+ 停留在主队列，因为 present / dismiss 必须在主线程。
+
+ 但**所有**编解码、写盘、base64 都会显式派发到后台队列 —— 老实现同样把
+ methodQueue 设成主队列，却把 JPEG 编码和 base64 也留在了上面，多选大图必卡。
+ */
+- (dispatch_queue_t)methodQueue {
+    return dispatch_get_main_queue();
 }
 
-// openVideoPicker
-RCT_EXPORT_METHOD(openVideoPicker:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback) {
-    [self openTZImagePicker:options callback:callback];
++ (BOOL)requiresMainQueueSetup {
+    return YES;
 }
 
-- (void)openTZImagePicker:(NSDictionary *)options callback:(RCTResponseSenderBlock)callback {
-    NSInteger imageCount = [options sy_integerForKey:@"imageCount"];
-    BOOL isCamera        = [options sy_boolForKey:@"isCamera"];
-    BOOL isCrop          = [options sy_boolForKey:@"isCrop"];
-    BOOL isGif = [options sy_boolForKey:@"isGif"];
-    BOOL allowPickingVideo = [options sy_boolForKey:@"allowPickingVideo"];
-    BOOL allowPickingMultipleVideo = [options sy_boolForKey:@"allowPickingMultipleVideo"];
-    BOOL allowPickingImage = [options sy_boolForKey:@"allowPickingImage"];
-    BOOL allowTakeVideo = [options sy_boolForKey:@"allowTakeVideo"];
-    BOOL showCropCircle  = [options sy_boolForKey:@"showCropCircle"];
-    BOOL isRecordSelected = [options sy_boolForKey:@"isRecordSelected"];
-    BOOL allowPickingOriginalPhoto = [options sy_boolForKey:@"allowPickingOriginalPhoto"];
-    BOOL sortAscendingByModificationDate = [options sy_boolForKey:@"sortAscendingByModificationDate"];
-    BOOL showSelectedIndex = [options sy_boolForKey:@"showSelectedIndex"];
-    NSInteger CropW      = [options sy_integerForKey:@"CropW"];
-    NSInteger CropH      = [options sy_integerForKey:@"CropH"];
-    NSInteger circleCropRadius = [options sy_integerForKey:@"circleCropRadius"];
-    NSInteger videoMaximumDuration = [options sy_integerForKey:@"videoMaximumDuration"];
-    NSInteger   quality  = [self.cameraOptions sy_integerForKey:@"quality"];
+/// 本库自己的处理队列，串行以保证结果顺序与选择顺序一致。
+- (dispatch_queue_t)workQueue {
+    static dispatch_queue_t queue;
+    static dispatch_once_t onceToken;
+    dispatch_once(&onceToken, ^{
+        queue = dispatch_queue_create("com.syanpicker.work", DISPATCH_QUEUE_SERIAL);
+    });
+    return queue;
+}
 
-    TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:self];
+#pragma mark - 结果构造
 
-    imagePickerVc.maxImagesCount = imageCount;
-    imagePickerVc.allowPickingGif = isGif; // 允许GIF
-    imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
-    imagePickerVc.allowPickingVideo = allowPickingVideo; // 不允许视频
-    imagePickerVc.allowPickingImage = allowPickingImage;
-    imagePickerVc.allowTakeVideo = allowTakeVideo; // 允许拍摄视频
-    imagePickerVc.videoMaximumDuration = videoMaximumDuration;
-    imagePickerVc.allowPickingMultipleVideo = isGif || allowPickingMultipleVideo ? YES : NO;
-    imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
-    imagePickerVc.sortAscendingByModificationDate = sortAscendingByModificationDate;
-    imagePickerVc.alwaysEnableDoneBtn = YES;
-    imagePickerVc.allowCrop = isCrop;   // 裁剪
-    imagePickerVc.autoDismiss = NO;
-    imagePickerVc.showSelectedIndex = showSelectedIndex;
-    imagePickerVc.modalPresentationStyle = UIModalPresentationFullScreen;
+static NSDictionary *SYCancelledResult(void) {
+    return @{@"cancelled" : @YES, @"assets" : @[]};
+}
 
-    if (isRecordSelected) {
-        imagePickerVc.selectedAssets = self.selectedAssets; // 当前已选中的图片
-    }
+static NSDictionary *SYSuccessResult(NSArray *assets) {
+    return @{@"cancelled" : @NO, @"assets" : assets ?: @[]};
+}
 
-    if (imageCount == 1) {
-        // 单选模式
-        imagePickerVc.showSelectBtn = NO;
+#pragma mark - 处理期间的原生 HUD
 
-        if(isCrop){
-            if(showCropCircle) {
-                imagePickerVc.needCircleCrop = showCropCircle; //圆形裁剪
-                imagePickerVc.circleCropRadius = circleCropRadius; //圆形半径
-            } else {
-                CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
-                CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
-                imagePickerVc.cropRect = CGRectMake(x,y,CropW,CropH);
+/**
+ 让选择器停在原地转圈，处理完再退出。
+
+ TZ 默认 autoDismiss=YES —— 先关 HUD、再 dismiss、最后才回调我们，于是我们所有
+ 的导出工作都发生在选择器消失之后，用户看到的是自己的界面毫无反应（视频导出可能
+ 几十秒）。把 autoDismiss 设成 NO 之后，回调时选择器还在，就能复用 TZ 自己的 HUD
+ 把这段等待盖住 —— 与 Android 的行为对齐（PictureSelector 在压缩阶段本来就有 loading）。
+
+ 代价：**关闭责任全部转移到我们身上**。下面这个方法是唯一的收尾出口，
+ 每条分支都必须走它，否则选择器会永远停在屏幕上。
+ */
+- (void)finishPicker:(TZImagePickerController *)picker
+         showLoading:(BOOL)showLoading
+          completion:(dispatch_block_t)completion {
+    dispatch_block_t finish = ^{
+        /*
+         关键：picker 可能**已经被关掉了**。
+
+         showLoading: NO 时 beginProcessing: 就立刻 dismiss 了，等导出结束走到这里，
+         weak 的 picker 已经是 nil。而 resolve/reject 是挂在 dismiss 的 completion
+         上的 —— 对 nil 发消息是空操作，completion 永不执行，promise 就永久挂起。
+
+         所以这里必须先判断：已经关过（或已释放）就直接结算。
+         */
+        if (!picker || [objc_getAssociatedObject(picker, kSYPickerDismissedKey) boolValue]) {
+            if (completion) {
+                completion();
             }
+            return;
         }
-    }
 
-    __weak TZImagePickerController *weakPicker = imagePickerVc;
-    [imagePickerVc setDidFinishPickingPhotosWithInfosHandle:^(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos) {
-        [self handleAssets:assets photos:photos quality:quality isSelectOriginalPhoto:isSelectOriginalPhoto completion:^(NSArray *selecteds) {
-            callback(@[[NSNull null], selecteds]);
-            [weakPicker dismissViewControllerAnimated:YES completion:nil];
-            [weakPicker hideProgressHUD];
-        } fail:^(NSError *error) {
-            [weakPicker dismissViewControllerAnimated:YES completion:nil];
-            [weakPicker hideProgressHUD];
-        }];
-    }];
-
-    [imagePickerVc setDidFinishPickingVideoHandle:^(UIImage *coverImage, PHAsset *asset) {
-        [weakPicker showProgressHUD];
-        [[TZImageManager manager] getVideoOutputPathWithAsset:asset presetName:AVAssetExportPresetHighestQuality success:^(NSString *outputPath) {
-            NSLog(@"视频导出成功:%@", outputPath);
-            callback(@[[NSNull null], @[[self handleVideoData:outputPath asset:asset coverImage:coverImage quality:quality]]]);
-            [weakPicker dismissViewControllerAnimated:YES completion:nil];
-            [weakPicker hideProgressHUD];
-        } failure:^(NSString *errorMessage, NSError *error) {
-            NSLog(@"视频导出失败:%@,error:%@",errorMessage, error);
-            callback(@[@"视频导出失败"]);
-            [weakPicker dismissViewControllerAnimated:YES completion:nil];
-            [weakPicker hideProgressHUD];
-        }];
-    }];
-
-    __weak TZImagePickerController *weakPickerVc = imagePickerVc;
-    [imagePickerVc setImagePickerControllerDidCancelHandle:^{
-        callback(@[@"取消"]);
-        [weakPicker dismissViewControllerAnimated:YES completion:nil];
-        [weakPickerVc hideProgressHUD];
-    }];
-
-    [[self topViewController] presentViewController:imagePickerVc animated:YES completion:nil];
-}
-
-- (void)openImagePicker {
-    // 照片最大可选张数
-    NSInteger imageCount = [self.cameraOptions sy_integerForKey:@"imageCount"];
-    // 显示内部拍照按钮
-    BOOL isCamera        = [self.cameraOptions sy_boolForKey:@"isCamera"];
-    BOOL isCrop          = [self.cameraOptions sy_boolForKey:@"isCrop"];
-    BOOL isGif           = [self.cameraOptions sy_boolForKey:@"isGif"];
-    BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
-    BOOL isRecordSelected = [self.cameraOptions sy_boolForKey:@"isRecordSelected"];
-    BOOL allowPickingOriginalPhoto = [self.cameraOptions sy_boolForKey:@"allowPickingOriginalPhoto"];
-    BOOL allowPickingMultipleVideo = [self.cameraOptions sy_boolForKey:@"allowPickingMultipleVideo"];
-    BOOL sortAscendingByModificationDate = [self.cameraOptions sy_boolForKey:@"sortAscendingByModificationDate"];
-    BOOL showSelectedIndex = [self.cameraOptions sy_boolForKey:@"showSelectedIndex"];
-    NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
-    NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
-    NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
-    NSInteger   quality  = [self.cameraOptions sy_integerForKey:@"quality"];
-
-    TZImagePickerController *imagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:imageCount delegate:self];
-
-    imagePickerVc.maxImagesCount = imageCount;
-    imagePickerVc.allowPickingGif = isGif; // 允许GIF
-    imagePickerVc.allowTakePicture = isCamera; // 允许用户在内部拍照
-    imagePickerVc.allowPickingVideo = NO; // 不允许视频
-    imagePickerVc.showSelectedIndex = showSelectedIndex;
-    imagePickerVc.allowPickingOriginalPhoto = allowPickingOriginalPhoto; // 允许原图
-    imagePickerVc.sortAscendingByModificationDate = sortAscendingByModificationDate;
-    imagePickerVc.alwaysEnableDoneBtn = YES;
-    imagePickerVc.allowPickingMultipleVideo = isGif ? YES : allowPickingMultipleVideo;
-    imagePickerVc.allowCrop = isCrop;   // 裁剪
-    imagePickerVc.modalPresentationStyle = UIModalPresentationFullScreen;
-
-    if (isRecordSelected) {
-        imagePickerVc.selectedAssets = self.selectedAssets; // 当前已选中的图片
-    }
-
-    if (imageCount == 1) {
-        // 单选模式
-        imagePickerVc.showSelectBtn = NO;
-
-        if(isCrop){
-            if(showCropCircle) {
-                imagePickerVc.needCircleCrop = showCropCircle; //圆形裁剪
-                imagePickerVc.circleCropRadius = circleCropRadius; //圆形半径
-            } else {
-                CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
-                CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
-                imagePickerVc.cropRect = CGRectMake(x,y,CropW,CropH);
-            }
+        objc_setAssociatedObject(picker, kSYPickerDismissedKey, @YES,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        if (showLoading) {
+            [picker hideProgressHUD];
         }
-    }
-
-    __weak TZImagePickerController *weakPicker = imagePickerVc;
-    [imagePickerVc setDidFinishPickingPhotosWithInfosHandle:^(NSArray<UIImage *> *photos,NSArray *assets,BOOL isSelectOriginalPhoto,NSArray<NSDictionary *> *infos) {
-        if (isRecordSelected) {
-            self.selectedAssets = [NSMutableArray arrayWithArray:assets];
-        }
-        [weakPicker showProgressHUD];
-        if (imageCount == 1 && isCrop) {
-            [self invokeSuccessWithResult:@[[self handleCropImage:photos[0] phAsset:assets[0] quality:quality]]];
-        } else {
-            [infos enumerateObjectsUsingBlock:^(NSDictionary * _Nonnull obj, NSUInteger idx, BOOL * _Nonnull stop) {
-                [self handleAssets:assets photos:photos quality:quality isSelectOriginalPhoto:isSelectOriginalPhoto completion:^(NSArray *selecteds) {
-                    [self invokeSuccessWithResult:selecteds];
-                } fail:^(NSError *error) {
-
-                }];
-            }];
-        }
-        [weakPicker hideProgressHUD];
-    }];
-
-    __weak TZImagePickerController *weakPickerVc = imagePickerVc;
-    [imagePickerVc setImagePickerControllerDidCancelHandle:^{
-        [self invokeError];
-        [weakPickerVc hideProgressHUD];
-    }];
-
-    [[self topViewController] presentViewController:imagePickerVc animated:YES completion:nil];
-}
-
-- (UIImagePickerController *)imagePickerVc {
-    if (_imagePickerVc == nil) {
-        _imagePickerVc = [[UIImagePickerController alloc] init];
-        _imagePickerVc.delegate = self;
-    }
-    return _imagePickerVc;
-}
-
-#pragma mark - UIImagePickerController
-- (void)takePhoto {
-    AVAuthorizationStatus authStatus = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
-    if (authStatus == AVAuthorizationStatusRestricted || authStatus == AVAuthorizationStatusDenied) {
-        // 无相机权限 做一个友好的提示
-        UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"无法使用相机" message:@"请在iPhone的""设置-隐私-相机""中允许访问相机" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"设置", nil];
-        [alert show];
-    } else if (authStatus == AVAuthorizationStatusNotDetermined) {
-        // fix issue 466, 防止用户首次拍照拒绝授权时相机页黑屏
-        [AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
-            if (granted) {
-                dispatch_async(dispatch_get_main_queue(), ^{
-                    [self takePhoto];
-                });
-            }
-        }];
-        // 拍照之前还需要检查相册权限
-    } else if ([PHPhotoLibrary authorizationStatus] == 2) { // 已被拒绝，没有相册权限，将无法保存拍的照片
-        UIAlertView * alert = [[UIAlertView alloc]initWithTitle:@"无法访问相册" message:@"请在iPhone的""设置-隐私-相册""中允许访问相册" delegate:self cancelButtonTitle:@"取消" otherButtonTitles:@"设置", nil];
-        [alert show];
-    } else if ([PHPhotoLibrary authorizationStatus] == 0) { // 未请求过相册权限
-        [[TZImageManager manager] requestAuthorizationWithCompletion:^{
-            [self takePhoto];
-        }];
+        [picker dismissViewControllerAnimated:YES
+                                   completion:^{
+                                       if (completion) {
+                                           completion();
+                                       }
+                                   }];
+    };
+    if ([NSThread isMainThread]) {
+        finish();
     } else {
-        [self pushImagePickerController];
+        dispatch_async(dispatch_get_main_queue(), finish);
     }
 }
 
-// 调用相机
-- (void)pushImagePickerController {
-    UIImagePickerControllerSourceType sourceType = UIImagePickerControllerSourceTypeCamera;
-    if ([UIImagePickerController isSourceTypeAvailable: UIImagePickerControllerSourceTypeCamera]) {
-        self.imagePickerVc.sourceType = sourceType;
-        [[self topViewController] presentViewController:self.imagePickerVc animated:YES completion:nil];
-    } else {
-        NSLog(@"模拟器中无法打开照相机,请在真机中使用");
-    }
-}
-
-- (void)imagePickerController:(UIImagePickerController*)picker didFinishPickingMediaWithInfo:(NSDictionary *)info {
-    [picker dismissViewControllerAnimated:YES completion:^{
-        NSString *type = [info objectForKey:UIImagePickerControllerMediaType];
-        if ([type isEqualToString:@"public.image"]) {
-
-            TZImagePickerController *tzImagePickerVc = [[TZImagePickerController alloc] initWithMaxImagesCount:1 delegate:nil];
-            tzImagePickerVc.sortAscendingByModificationDate = NO;
-            [tzImagePickerVc showProgressHUD];
-            UIImage *image = [info objectForKey:UIImagePickerControllerOriginalImage];
-
-            // save photo and get asset / 保存图片，获取到asset
-            [[TZImageManager manager] savePhotoWithImage:image location:NULL completion:^(PHAsset *asset, NSError *error){
-                if (error) {
-                    [tzImagePickerVc hideProgressHUD];
-                    NSLog(@"图片保存失败 %@",error);
-                } else {
-                    [tzImagePickerVc hideProgressHUD];
-
-                    TZAssetModel *assetModel = [[TZImageManager manager] createModelWithAsset:asset];
-                    BOOL isCrop          = [self.cameraOptions sy_boolForKey:@"isCrop"];
-                    BOOL showCropCircle  = [self.cameraOptions sy_boolForKey:@"showCropCircle"];
-                    NSInteger CropW      = [self.cameraOptions sy_integerForKey:@"CropW"];
-                    NSInteger CropH      = [self.cameraOptions sy_integerForKey:@"CropH"];
-                    NSInteger circleCropRadius = [self.cameraOptions sy_integerForKey:@"circleCropRadius"];
-                    NSInteger   quality = [self.cameraOptions sy_integerForKey:@"quality"];
-
-                    if (isCrop) {
-                        TZImagePickerController *imagePicker = [[TZImagePickerController alloc] initCropTypeWithAsset:assetModel.asset photo:image completion:^(UIImage *cropImage, id asset) {
-                            [self invokeSuccessWithResult:@[[self handleCropImage:cropImage phAsset:asset quality:quality]]];
-                        }];
-                        imagePicker.allowPickingImage = YES;
-                        if(showCropCircle) {
-                            imagePicker.needCircleCrop = showCropCircle; //圆形裁剪
-                            imagePicker.circleCropRadius = circleCropRadius; //圆形半径
-                        } else {
-                            CGFloat x = ([[UIScreen mainScreen] bounds].size.width - CropW) / 2;
-                            CGFloat y = ([[UIScreen mainScreen] bounds].size.height - CropH) / 2;
-                            imagePicker.cropRect = CGRectMake(x,y,CropW,CropH);
-                        }
-                        [[self topViewController] presentViewController:imagePicker animated:YES completion:nil];
-                    } else {
-                        [self invokeSuccessWithResult:@[[self handleCropImage:image phAsset:asset quality:quality]]];
-                    }
-                }
-            }];
-        }
-    }];
-}
-
-- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
-    [self invokeError];
-    if ([picker isKindOfClass:[UIImagePickerController class]]) {
+/// 开始处理：把 HUD 打起来（必须在主线程）。
+- (void)beginProcessing:(TZImagePickerController *)picker showLoading:(BOOL)showLoading {
+    if (!showLoading) {
+        // 不显示 HUD 就立刻退出，处理在后台静默进行。
+        // 必须打标记：否则 finishPicker: 还会再关一次，而那次的 completion
+        // （里面才是 resolve/reject）根本不会被调用。
+        objc_setAssociatedObject(picker, kSYPickerDismissedKey, @YES,
+                                 OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         [picker dismissViewControllerAnimated:YES completion:nil];
+        return;
     }
+    [picker showProgressHUD];
 }
 
-#pragma mark - UIAlertViewDelegate
-- (void)alertView:(UIAlertView *)alertView clickedButtonAtIndex:(NSInteger)buttonIndex {
-    if (buttonIndex == 1) { // 去设置界面，开启相机访问权限
-        [[UIApplication sharedApplication] openURL:[NSURL URLWithString:UIApplicationOpenSettingsURLString]];
-    }
+#pragma mark - 相册：图片
+
+RCT_EXPORT_METHOD(pickImage
+                  : (NSDictionary *)options resolver
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject) {
+    SYImageOptions *opts = [SYImageOptions fromDictionary:options];
+
+    [SYPermissions requestPhotoLibraryAccess:^(BOOL granted) {
+        if (!granted) {
+            reject(kSYCodePermissionDenied, @"用户拒绝了相册访问权限", nil);
+            return;
+        }
+        [self presentImagePickerWithOptions:opts resolve:resolve reject:reject];
+    }];
 }
 
-- (BOOL)isAssetCanSelect:(PHAsset *)asset {
-    BOOL allowPickingGif = [self.cameraOptions sy_boolForKey:@"isGif"];
-    BOOL isGIF = [[TZImageManager manager] getAssetType:asset] == TZAssetModelMediaTypePhotoGif;
-    if (!allowPickingGif && isGIF) {
+- (void)presentImagePickerWithOptions:(SYImageOptions *)opts
+                              resolve:(RCTPromiseResolveBlock)resolve
+                               reject:(RCTPromiseRejectBlock)reject {
+    TZImagePickerController *picker =
+        [[TZImagePickerController alloc] initWithMaxImagesCount:opts.maxCount delegate:nil];
+
+    picker.minImagesCount = opts.minCount;
+    picker.allowPickingImage = YES;
+    picker.allowPickingVideo = NO;
+    picker.allowPickingGif = opts.allowGif;
+    /*
+     允许 GIF 时必须同时打开 allowPickingMultipleVideo（旧实现就是这么做的）。
+
+     否则 TZ 不给 GIF 单元格渲染选择框，用户只能点进去，被路由到
+     TZGifPhotoPreviewController —— 那个页面的"完成"只调
+     didFinishPickingGifImageHandle，而我们从不安装该回调；叠加 autoDismiss = NO，
+     结果是按钮点了没反应、选择器卡在全屏、promise 永不结算。
+     打开它之后 GIF 走的是与普通图片相同的多选通道。
+     */
+    picker.allowPickingMultipleVideo = opts.allowGif;
+    picker.allowPickingOriginalPhoto = opts.allowOriginal;
+    picker.allowTakePicture = opts.showCameraButton;
+    picker.sortAscendingByModificationDate = opts.sortAscending;
+    picker.showSelectedIndex = opts.showSelectionIndex;
+    picker.selectedAssets = [self selectedAssetsForURIs:opts.selectedUris];
+
+    // 裁剪只在单选时有意义。
+    BOOL shouldCrop = opts.crop.enabled && opts.maxCount == 1;
+    picker.allowCrop = shouldCrop;
+    if (shouldCrop) {
+        /*
+         裁剪界面只在 TZPhotoPreviewController.configCropView 里构建，
+         而进入预览页的前提是网格上没有"选择框 + 完成"这条捷径。
+         不设 showSelectBtn = NO 的话，用户可以直接勾选并点完成，
+         裁剪被完全绕过，调用方明明请求了 300x300 却拿回整幅原图且毫无提示。
+         旧实现在单选分支正是这么设的。
+         */
+        picker.showSelectBtn = NO;
+        picker.needCircleCrop = opts.crop.circle;
+        picker.circleCropRadius = MIN(opts.crop.width, opts.crop.height) / 2;
+        picker.cropRect = [self cropRectForWidth:opts.crop.width height:opts.crop.height];
+    }
+
+    SYCompressOptions *compress = opts.compress;
+    BOOL includeBase64 = opts.includeBase64;
+    NSInteger minFileSize = opts.minFileSize;
+    NSInteger maxFileSize = opts.maxFileSize;
+    BOOL keepOriginal = opts.keepOriginal;
+    BOOL showLoading = opts.showLoading;
+    BOOL allowGif = opts.allowGif;
+
+    /*
+     关掉 autoDismiss，让选择器停在原地等我们处理完。
+     注意：取消路径同样受它控制（TZ 的 cancelButtonClick 也判断 autoDismiss），
+     所以**取消也必须由我们关闭**，见下面的 wrappedResolve / 取消回调。
+     */
+    picker.autoDismiss = NO;
+
+    // 每次调用一份独立的结算守卫：无论走到哪条分支，promise 只会被结算一次，
+    // 且**每条**分支都必须结算 —— 老实现里有好几条路径静默地什么都不做。
+    __block BOOL settled = NO;
+    NSObject *lock = [NSObject new];
+    BOOL (^claim)(void) = ^BOOL {
+        @synchronized(lock) {
+            if (settled) {
+                return NO;
+            }
+            settled = YES;
+            return YES;
+        }
+    };
+
+    __weak typeof(self) weakSelf = self;
+    // picker 用 weak：这些 block 是挂在 picker 上的，强引用会成环。
+    __weak TZImagePickerController *weakPicker = picker;
+
+    // 所有结算都先收尾（关 HUD + dismiss），再回调 JS。
+    RCTPromiseResolveBlock wrappedResolve = ^(id result) {
+        [weakSelf finishPicker:weakPicker
+                   showLoading:showLoading
+                    completion:^{
+                        resolve(result);
+                    }];
+    };
+    RCTPromiseRejectBlock wrappedReject =
+        ^(NSString *code, NSString *message, NSError *error) {
+            [weakSelf finishPicker:weakPicker
+                       showLoading:showLoading
+                        completion:^{
+                            reject(code, message, error);
+                        }];
+        };
+
+    picker.didFinishPickingPhotosWithInfosHandle =
+        ^(NSArray<UIImage *> *photos, NSArray *assets, BOOL isSelectOriginalPhoto,
+          NSArray<NSDictionary *> *infos) {
+            if (!claim()) {
+                return;
+            }
+            [weakSelf beginProcessing:weakPicker showLoading:showLoading];
+            [weakSelf exportPhotos:photos
+                             assets:assets
+                           compress:compress
+                      includeBase64:includeBase64
+                  allowOriginalData:!shouldCrop
+                  originalRequested:isSelectOriginalPhoto
+                        minFileSize:minFileSize
+                        maxFileSize:maxFileSize
+                       keepOriginal:keepOriginal
+                           allowGif:allowGif
+                            resolve:wrappedResolve
+                             reject:wrappedReject];
+        };
+
+    picker.imagePickerControllerDidCancelHandle = ^{
+        if (!claim()) {
+            return;
+        }
+        // 取消不是错误。autoDismiss=NO 时取消也不会自动关闭，必须走收尾。
+        [weakSelf finishPicker:weakPicker
+                   showLoading:NO
+                    completion:^{
+                        resolve(SYCancelledResult());
+                    }];
+    };
+
+    [self presentPicker:picker claim:claim reject:reject];
+}
+
+- (void)exportPhotos:(NSArray<UIImage *> *)photos
+               assets:(NSArray *)assets
+             compress:(SYCompressOptions *)compress
+        includeBase64:(BOOL)includeBase64
+    allowOriginalData:(BOOL)allowOriginalData
+    originalRequested:(BOOL)originalRequested
+          minFileSize:(NSInteger)minFileSize
+          maxFileSize:(NSInteger)maxFileSize
+         keepOriginal:(BOOL)keepOriginal
+             allowGif:(BOOL)allowGif
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject {
+    dispatch_async([self workQueue], ^{
+        NSMutableArray *results = [NSMutableArray arrayWithCapacity:photos.count];
+
+        // 按下标顺序串行处理 —— 结果顺序天然等于选择顺序。老的 iOS 实现用多个
+        // 异步回调往同一个可变数组里追加，顺序是乱的，还有数据竞争。
+        for (NSUInteger index = 0; index < photos.count; index++) {
+            PHAsset *asset = index < assets.count ? assets[index] : nil;
+
+            // TZ 无法在选择界面内按文件大小筛选，只能选完之后剔除。
+            // 与 video.maxDuration 在 iOS 上是同一种处理方式，已写入 README。
+            if (![self asset:asset fitsMinSize:minFileSize maxSize:maxFileSize]) {
+                continue;
+            }
+
+            /*
+             allowGif: NO 时剔除 GIF。
+
+             这是两端语义对齐所必需的：Android 在查询层过滤，GIF 根本不出现；
+             而 TZ 的 allowPickingGif=NO **并不隐藏 GIF**，只是"把它当作普通图片"
+             （见其头文件注释），用户照样能选中。不在这里剔除的话，一个明确
+             声明了不要 GIF 的调用方还是会拿到 GIF 文件 —— 尤其在我们已经让
+             GIF 走原始字节透传之后，返回的就是货真价实的 .gif。
+             */
+            if (!allowGif && [self isGifAsset:asset]) {
+                continue;
+            }
+
+            NSError *error = nil;
+            NSDictionary *item = [SYAssetExporter exportImage:photos[index]
+                                                        asset:asset
+                                                    sourceURL:nil
+                                                     compress:compress
+                                                includeBase64:includeBase64
+                                            allowOriginalData:allowOriginalData
+                                            originalRequested:originalRequested
+                                                 keepOriginal:keepOriginal
+                                                        error:&error];
+            if (!item) {
+                reject(kSYCodeExportFailed,
+                       error.localizedDescription ?: @"图片导出失败", error);
+                return;
+            }
+            [results addObject:item];
+            [self emitProgressPhase:@"processing"
+                          completed:index + 1
+                              total:photos.count];
+        }
+
+        resolve(SYSuccessResult(results));
+    });
+}
+
+#pragma mark - 相册：视频
+
+RCT_EXPORT_METHOD(pickVideo
+                  : (NSDictionary *)options resolver
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject) {
+    SYVideoOptions *opts = [SYVideoOptions fromDictionary:options];
+
+    [SYPermissions requestPhotoLibraryAccess:^(BOOL granted) {
+        if (!granted) {
+            reject(kSYCodePermissionDenied, @"用户拒绝了相册访问权限", nil);
+            return;
+        }
+        [self presentVideoPickerWithOptions:opts resolve:resolve reject:reject];
+    }];
+}
+
+- (void)presentVideoPickerWithOptions:(SYVideoOptions *)opts
+                              resolve:(RCTPromiseResolveBlock)resolve
+                               reject:(RCTPromiseRejectBlock)reject {
+    TZImagePickerController *picker =
+        [[TZImagePickerController alloc] initWithMaxImagesCount:opts.maxCount delegate:nil];
+
+    picker.minImagesCount = opts.minCount;
+    picker.allowPickingImage = NO;
+    picker.allowPickingVideo = YES;
+    picker.allowPickingGif = NO;
+    // 打开多选视频后，结果统一从 photos 回调出来，只需维护一条导出路径。
+    picker.allowPickingMultipleVideo = YES;
+    picker.allowTakeVideo = opts.showCameraButton;
+    picker.sortAscendingByModificationDate = opts.sortAscending;
+    picker.selectedAssets = [self selectedAssetsForURIs:opts.selectedUris];
+
+    /*
+     注意：videoMaximumDuration 是选择器内**录制**视频的时长上限，不是相册里
+     可选视频的筛选条件 —— TZImagePickerController 根本没有按时长筛选的能力
+     （3.8.x 的头文件里不存在任何 min/max duration 筛选属性）。
+     这里把录制上限对齐到 maxDuration，让录出来的视频天然满足约束；
+     从相册选中的视频则在结果返回前统一过滤（见 exportVideoAssets:）。
+     */
+    if (opts.maxDuration > 0) {
+        picker.videoMaximumDuration = opts.maxDuration;
+    }
+
+    NSInteger minDuration = opts.minDuration;
+    NSInteger maxDuration = opts.maxDuration;
+    NSInteger minFileSize = opts.minFileSize;
+    NSInteger maxFileSize = opts.maxFileSize;
+    BOOL transcode = opts.transcode;
+    BOOL showLoading = opts.showLoading;
+
+    // 同图片路径：关掉 autoDismiss，收尾责任转移到我们身上。
+    picker.autoDismiss = NO;
+
+    __block BOOL settled = NO;
+    NSObject *lock = [NSObject new];
+    BOOL (^claim)(void) = ^BOOL {
+        @synchronized(lock) {
+            if (settled) {
+                return NO;
+            }
+            settled = YES;
+            return YES;
+        }
+    };
+
+    __weak typeof(self) weakSelf = self;
+    __weak TZImagePickerController *weakPicker = picker;
+
+    RCTPromiseResolveBlock wrappedResolve = ^(id result) {
+        [weakSelf finishPicker:weakPicker
+                   showLoading:showLoading
+                    completion:^{
+                        resolve(result);
+                    }];
+    };
+    RCTPromiseRejectBlock wrappedReject =
+        ^(NSString *code, NSString *message, NSError *error) {
+            [weakSelf finishPicker:weakPicker
+                       showLoading:showLoading
+                        completion:^{
+                            reject(code, message, error);
+                        }];
+        };
+
+    picker.didFinishPickingPhotosWithInfosHandle =
+        ^(NSArray<UIImage *> *photos, NSArray *assets, BOOL isSelectOriginalPhoto,
+          NSArray<NSDictionary *> *infos) {
+            if (!claim()) {
+                return;
+            }
+            [weakSelf beginProcessing:weakPicker showLoading:showLoading];
+            [weakSelf exportVideoAssets:assets
+                                 covers:photos
+                            minDuration:minDuration
+                            maxDuration:maxDuration
+                            minFileSize:minFileSize
+                            maxFileSize:maxFileSize
+                              transcode:transcode
+                                resolve:wrappedResolve
+                                 reject:wrappedReject];
+        };
+
+    // 兜底：万一 TZ 走了单选视频回调，这里同样能结算，不会挂死。
+    picker.didFinishPickingVideoHandle = ^(UIImage *coverImage, PHAsset *asset) {
+        if (!claim()) {
+            return;
+        }
+        [weakSelf beginProcessing:weakPicker showLoading:showLoading];
+        [weakSelf exportVideoAssets:asset ? @[ asset ] : @[]
+                             covers:coverImage ? @[ coverImage ] : @[]
+                        minDuration:minDuration
+                        maxDuration:maxDuration
+                        minFileSize:minFileSize
+                        maxFileSize:maxFileSize
+                          transcode:transcode
+                            resolve:wrappedResolve
+                             reject:wrappedReject];
+    };
+
+    picker.imagePickerControllerDidCancelHandle = ^{
+        if (!claim()) {
+            return;
+        }
+        [weakSelf finishPicker:weakPicker
+                   showLoading:NO
+                    completion:^{
+                        resolve(SYCancelledResult());
+                    }];
+    };
+
+    [self presentPicker:picker claim:claim reject:reject];
+}
+
+- (void)exportVideoAssets:(NSArray *)assets
+                   covers:(NSArray<UIImage *> *)covers
+              minDuration:(NSInteger)minDuration
+              maxDuration:(NSInteger)maxDuration
+              minFileSize:(NSInteger)minFileSize
+              maxFileSize:(NSInteger)maxFileSize
+                transcode:(BOOL)transcode
+                  resolve:(RCTPromiseResolveBlock)resolve
+                   reject:(RCTPromiseRejectBlock)reject {
+    dispatch_async([self workQueue], ^{
+        NSMutableArray *results = [NSMutableArray arrayWithCapacity:assets.count];
+
+        for (NSUInteger index = 0; index < assets.count; index++) {
+            id asset = assets[index];
+            if (![asset isKindOfClass:[PHAsset class]]) {
+                continue;
+            }
+
+            // TZ 无法在选择界面内按时长筛选，只能在这里剔除不满足约束的视频。
+            // 该行为已写入 README 的平台差异表。
+            NSTimeInterval duration = [(PHAsset *)asset duration];
+            if (duration < minDuration || (maxDuration > 0 && duration > maxDuration)) {
+                continue;
+            }
+            if (![self asset:asset fitsMinSize:minFileSize maxSize:maxFileSize]) {
+                continue;
+            }
+
+            UIImage *cover = index < covers.count ? covers[index] : nil;
+            NSError *error = nil;
+            NSDictionary *item = [SYAssetExporter exportVideoForAsset:asset
+                                                           coverImage:cover
+                                                            transcode:transcode
+                                                                error:&error];
+            if (!item) {
+                // 导出失败必须 reject。老实现这里是个空的 failure 块，
+                // promise 和 HUD 会一起永久卡住。
+                reject(kSYCodeExportFailed,
+                       error.localizedDescription ?: @"视频导出失败", error);
+                return;
+            }
+            [results addObject:item];
+            [self emitProgressPhase:@"exporting"
+                          completed:index + 1
+                              total:assets.count];
+        }
+
+        resolve(SYSuccessResult(results));
+    });
+}
+
+#pragma mark - 相机
+
+RCT_EXPORT_METHOD(captureImage
+                  : (NSDictionary *)options resolver
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject) {
+    SYCaptureImageOptions *opts = [SYCaptureImageOptions fromDictionary:options];
+    [SYCameraCapture captureImageWithOptions:opts
+                                  completion:^(NSDictionary *asset, NSError *error, BOOL cancelled) {
+                                      [self settleCapture:asset
+                                                    error:error
+                                                cancelled:cancelled
+                                                  resolve:resolve
+                                                   reject:reject];
+                                  }];
+}
+
+RCT_EXPORT_METHOD(captureVideo
+                  : (NSDictionary *)options resolver
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject) {
+    SYCaptureVideoOptions *opts = [SYCaptureVideoOptions fromDictionary:options];
+    [SYCameraCapture captureVideoWithOptions:opts
+                                  completion:^(NSDictionary *asset, NSError *error, BOOL cancelled) {
+                                      [self settleCapture:asset
+                                                    error:error
+                                                cancelled:cancelled
+                                                  resolve:resolve
+                                                   reject:reject];
+                                  }];
+}
+
+- (void)settleCapture:(NSDictionary *)asset
+                error:(NSError *)error
+            cancelled:(BOOL)cancelled
+              resolve:(RCTPromiseResolveBlock)resolve
+               reject:(RCTPromiseRejectBlock)reject {
+    if (cancelled) {
+        resolve(SYCancelledResult());
+        return;
+    }
+    if (error) {
+        NSString *code = kSYCodeExportFailed;
+        if ([error.domain isEqualToString:@"com.syanpicker.permission"]) {
+            code = kSYCodePermissionDenied;
+        } else if ([error.domain isEqualToString:@"com.syanpicker.camera"]) {
+            code = kSYCodeUnsupported;
+        }
+        reject(code, error.localizedDescription, error);
+        return;
+    }
+    resolve(SYSuccessResult(asset ? @[ asset ] : @[]));
+}
+
+#pragma mark - 预览
+
+RCT_EXPORT_METHOD(openPreview
+                  : (NSDictionary *)options resolver
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject) {
+    NSArray *rawUris = [options isKindOfClass:[NSDictionary class]] ? options[@"uris"] : nil;
+    NSInteger index = [options[@"index"] isKindOfClass:[NSNumber class]]
+                          ? [options[@"index"] integerValue]
+                          : 0;
+
+    if (![rawUris isKindOfClass:[NSArray class]] || rawUris.count == 0) {
+        resolve([NSNull null]);
+        return;
+    }
+
+    // 解码放后台，present 回主线程。
+    dispatch_async([self workQueue], ^{
+        NSMutableArray<UIImage *> *photos = [NSMutableArray array];
+        for (id item in rawUris) {
+            if (![item isKindOfClass:[NSString class]]) {
+                continue;
+            }
+            NSURL *url = [NSURL URLWithString:item];
+            NSString *path = url.isFileURL ? url.path : item;
+            UIImage *image = [UIImage imageWithContentsOfFile:path];
+            if (image) {
+                [photos addObject:image];
+            }
+        }
+
+        if (photos.count == 0) {
+            reject(kSYCodeExportFailed, @"没有可预览的有效文件", nil);
+            return;
+        }
+
+        NSInteger clamped = MIN(MAX(index, 0), (NSInteger)photos.count - 1);
+
+        dispatch_async(dispatch_get_main_queue(), ^{
+            /*
+             必须走这个初始化方法：TZPhotoPreviewController 内部有十几处把
+             self.navigationController 强转成 TZImagePickerController，单独拿出来用会崩。
+             这个初始化方法正是官方的预览入口，会把它包成导航栈的根控制器。
+             selectedAssets 传空数组即可 —— 预览只用到 photos。
+             */
+            TZImagePickerController *previewVc =
+                [[TZImagePickerController alloc] initWithSelectedAssets:[NSMutableArray array]
+                                                        selectedPhotos:photos
+                                                                 index:clamped];
+            previewVc.modalPresentationStyle = UIModalPresentationFullScreen;
+
+            UIViewController *presenter = RCTPresentedViewController();
+            if (!presenter) {
+                reject(kSYCodeUnsupported, @"找不到可用于展示预览的控制器", nil);
+                return;
+            }
+            [presenter presentViewController:previewVc animated:YES completion:nil];
+
+            // 与 Android 一致：预览一旦展示就 resolve，不等用户关闭。
+            resolve([NSNull null]);
+        });
+    });
+}
+
+#pragma mark - 缓存
+
+RCT_EXPORT_METHOD(clearCache
+                  : (RCTPromiseResolveBlock)resolve rejecter
+                  : (RCTPromiseRejectBlock)reject) {
+    dispatch_async([self workQueue], ^{
+        [SYAssetExporter clearCache];
+        resolve([NSNull null]);
+    });
+}
+
+#pragma mark - 工具
+
+- (void)presentPicker:(TZImagePickerController *)picker
+                claim:(BOOL (^)(void))claim
+               reject:(RCTPromiseRejectBlock)reject {
+    /*
+     必须强制全屏。
+
+     iOS 13 起模态展示默认是 pageSheet，而裁剪框的坐标是按 [UIScreen mainScreen]
+     的完整尺寸算的（见 cropRectForWidth:height:）—— 在 sheet 里就会偏移甚至超出
+     选择器边界，iPad 上尤其明显。TZImagePickerController 自己只对视频裁剪控制器
+     设了 FullScreen，选择器本身没设。
+     */
+    picker.modalPresentationStyle = UIModalPresentationFullScreen;
+
+    UIViewController *presenter = RCTPresentedViewController();
+    if (!presenter) {
+        if (claim()) {
+            reject(kSYCodeUnsupported, @"找不到可用于展示选择器的控制器", nil);
+        }
+        return;
+    }
+    [presenter presentViewController:picker animated:YES completion:nil];
+}
+
+/**
+ 源文件大小是否落在 [minKB, maxKB] 内。两个上下限都为 0 时直接放行，
+ 避免为不需要筛选的调用平白多做一次 IO。
+ */
+- (BOOL)asset:(PHAsset *)asset
+    fitsMinSize:(NSInteger)minKB
+        maxSize:(NSInteger)maxKB {
+    if (minKB <= 0 && maxKB <= 0) {
+        return YES;
+    }
+    long long bytes = [SYAssetExporter sourceFileSizeForAsset:asset];
+    if (bytes < 0) {
+        return YES; // 取不到大小就不拦，宁可放过也不误杀
+    }
+    long long kb = bytes / 1024;
+    if (minKB > 0 && kb < minKB) {
+        return NO;
+    }
+    if (maxKB > 0 && kb > maxKB) {
         return NO;
     }
     return YES;
 }
 
-/// 异步处理获取图片
-- (void)handleAssets:(NSArray *)assets photos:(NSArray*)photos quality:(CGFloat)quality isSelectOriginalPhoto:(BOOL)isSelectOriginalPhoto completion:(void (^)(NSArray *selecteds))completion fail:(void(^)(NSError *error))fail {
-    NSMutableArray *selectedPhotos = [NSMutableArray array];
+/// 判断资源是否为 GIF。只对已选中的少数资源调用，成本可接受。
+- (BOOL)isGifAsset:(PHAsset *)asset {
+    if (!asset) {
+        return NO;
+    }
+    PHAssetResource *resource = [PHAssetResource assetResourcesForAsset:asset].firstObject;
+    NSString *uti = resource.uniformTypeIdentifier;
+    if ([uti isEqualToString:@"com.compuserve.gif"]) {
+        return YES;
+    }
+    return [[resource.originalFilename.pathExtension lowercaseString] isEqualToString:@"gif"];
+}
 
-    [assets enumerateObjectsUsingBlock:^(PHAsset * _Nonnull asset, NSUInteger idx, BOOL * _Nonnull stop) {
-        if (asset.mediaType == PHAssetMediaTypeVideo) {
-            [[TZImageManager manager] getVideoOutputPathWithAsset:asset presetName:AVAssetExportPresetHighestQuality success:^(NSString *outputPath) {
-                [selectedPhotos addObject:[self handleVideoData:outputPath asset:asset coverImage:photos[idx] quality:quality]];
-                if ([selectedPhotos count] == [assets count]) {
-                    completion(selectedPhotos);
-                }
-                if (idx + 1 == [assets count] && [selectedPhotos count] != [assets count]) {
-                    fail(nil);
-                }
-            } failure:^(NSString *errorMessage, NSError *error) {
+- (CGRect)cropRectForWidth:(NSInteger)width height:(NSInteger)height {
+    CGSize screen = [UIScreen mainScreen].bounds.size;
+    CGFloat x = (screen.width - width) / 2.0;
+    CGFloat y = (screen.height - height) / 2.0;
+    return CGRectMake(x, y, width, height);
+}
 
-            }];
-        } else {
-            BOOL isGIF = [[TZImageManager manager] getAssetType:asset] == TZAssetModelMediaTypePhotoGif;
-            if (isGIF || isSelectOriginalPhoto) {
-               [[TZImageManager manager] requestImageDataForAsset:asset completion:^(NSData *imageData, NSString *dataUTI, UIImageOrientation orientation, NSDictionary *info) {
-                   [selectedPhotos addObject:[self handleOriginalPhotoData:imageData phAsset:asset isGIF:isGIF quality:quality]];
-                   if ([selectedPhotos count] == [assets count]) {
-                       completion(selectedPhotos);
-                   }
-                   if (idx + 1 == [assets count] && [selectedPhotos count] != [assets count]) {
-                       fail(nil);
-                   }
-                } progressHandler:^(double progress, NSError *error, BOOL *stop, NSDictionary *info) {
-
-                }];
-            } else {
-                [selectedPhotos addObject:[self handleCropImage:photos[idx] phAsset:asset quality:quality]];
-                if ([selectedPhotos count] == [assets count]) {
-                    completion(selectedPhotos);
-                }
-            }
+/// 把上次返回的 uri 还原成 PHAsset，用于回填选中态。
+- (NSMutableArray *)selectedAssetsForURIs:(NSArray<NSString *> *)uris {
+    NSMutableArray *assets = [NSMutableArray array];
+    if (uris.count == 0) {
+        return assets;
+    }
+    // JS 层传过来的优先是结果里的 assetId，也就是 PHAsset.localIdentifier；
+    // 结果中的 uri 指向缓存目录里的产物文件，无法反查回相册资源。
+    NSMutableArray<NSString *> *identifiers = [NSMutableArray array];
+    for (NSString *uri in uris) {
+        if ([uri hasPrefix:@"file://"]) {
+            continue; // 文件路径无法还原成 PHAsset，跳过。
         }
+        [identifiers addObject:[uri hasPrefix:@"ph://"] ? [uri substringFromIndex:5] : uri];
+    }
+    if (identifiers.count == 0) {
+        return assets;
+    }
+    PHFetchResult<PHAsset *> *result =
+        [PHAsset fetchAssetsWithLocalIdentifiers:identifiers options:nil];
+    [result enumerateObjectsUsingBlock:^(PHAsset *asset, NSUInteger idx, BOOL *stop) {
+        [assets addObject:asset];
     }];
-}
-
-/// 处理裁剪图片数据
-- (NSDictionary *)handleCropImage:(UIImage *)image phAsset:(PHAsset *)phAsset quality:(CGFloat)quality {
-    [self createDir];
-
-    NSMutableDictionary *photo  = [NSMutableDictionary dictionary];
-    NSString *filename = [NSString stringWithFormat:@"%@%@", [[NSUUID UUID] UUIDString], [phAsset valueForKey:@"filename"]];
-    NSString *fileExtension    = [filename pathExtension];
-    NSMutableString *filePath = [NSMutableString string];
-    BOOL isPNG = [fileExtension hasSuffix:@"PNG"] || [fileExtension hasSuffix:@"png"];
-    BOOL compressFocusAlpha = [self.cameraOptions sy_boolForKey:@"compressFocusAlpha"];
-    
-    if (isPNG) {
-        [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@", NSTemporaryDirectory(), filename]];
-    } else {
-        [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@.jpg", NSTemporaryDirectory(), [filename stringByDeletingPathExtension]]];
-    }
-    //UIImagePNGRepresentation压缩压缩率太低了可以使用 pngquant
-    NSData *writeData = (isPNG && compressFocusAlpha) ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality/100);
-    [writeData writeToFile:filePath atomically:YES];
-
-    photo[@"uri"]       = filePath;
-    photo[@"width"]     = @(image.size.width);
-    photo[@"height"]    = @(image.size.height);
-    NSInteger size = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil].fileSize;
-    photo[@"size"] = @(size);
-    photo[@"mediaType"] = @(phAsset.mediaType);
-    if ([self.cameraOptions sy_boolForKey:@"enableBase64"]) {
-        if(isPNG){
-            photo[@"base64"] = [NSString stringWithFormat:@"data:image/png;base64,%@", [writeData base64EncodedStringWithOptions:0]];
-        }else{
-            photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
-        }
-    }
-
-    return photo;
-}
-
-/// 处理原图数据
-- (NSDictionary *)handleOriginalPhotoData:(NSData *)data phAsset:(PHAsset *)phAsset isGIF:(BOOL)isGIF quality:(CGFloat)quality {
-    [self createDir];
-
-    NSMutableDictionary *photo  = [NSMutableDictionary dictionary];
-    NSString *filename = [NSString stringWithFormat:@"%@%@", [[NSUUID UUID] UUIDString], [phAsset valueForKey:@"filename"]];
-    NSString *fileExtension    = [filename pathExtension];
-    UIImage *image = nil;
-    NSData *writeData = nil;
-    NSMutableString *filePath = [NSMutableString string];
-    BOOL isPNG = [fileExtension hasSuffix:@"PNG"] || [fileExtension hasSuffix:@"png"];
-    BOOL compressFocusAlpha = [self.cameraOptions sy_boolForKey:@"compressFocusAlpha"];
-    
-    if (isGIF) {
-        image = [UIImage sd_tz_animatedGIFWithData:data];
-        writeData = data;
-    } else {
-        image = [UIImage imageWithData: data];
-        writeData = (isPNG && compressFocusAlpha) ? UIImagePNGRepresentation(image) : UIImageJPEGRepresentation(image, quality/100);
-    }
-
-    if (isPNG || isGIF) {
-        [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@", NSTemporaryDirectory(), filename]];
-    } else {
-        [filePath appendString:[NSString stringWithFormat:@"%@SyanImageCaches/%@.jpg", NSTemporaryDirectory(), [filename stringByDeletingPathExtension]]];
-    }
-
-    [writeData writeToFile:filePath atomically:YES];
-
-    photo[@"uri"]       = filePath;
-    photo[@"width"]     = @(image.size.width);
-    photo[@"height"]    = @(image.size.height);
-    NSInteger size      = [[NSFileManager defaultManager] attributesOfItemAtPath:filePath error:nil].fileSize;
-    photo[@"size"]      = @(size);
-    photo[@"mediaType"] = @(phAsset.mediaType);
-    if ([self.cameraOptions sy_boolForKey:@"enableBase64"] && !isGIF) {
-        if(isPNG){
-            photo[@"base64"] = [NSString stringWithFormat:@"data:image/png;base64,%@", [writeData base64EncodedStringWithOptions:0]];
-        }else{
-            photo[@"base64"] = [NSString stringWithFormat:@"data:image/jpeg;base64,%@", [writeData base64EncodedStringWithOptions:0]];
-        }
-    }
-
-    return photo;
-}
-
-/// 处理视频数据
-- (NSDictionary *)handleVideoData:(NSString *)outputPath asset:(PHAsset *)asset coverImage:(UIImage *)coverImage quality:(CGFloat)quality {
-    NSMutableDictionary *video = [NSMutableDictionary dictionary];
-    video[@"uri"] = outputPath;
-    video[@"fileName"] = [asset valueForKey:@"filename"];
-    NSInteger size = [[NSFileManager defaultManager] attributesOfItemAtPath:outputPath error:nil].fileSize;
-    video[@"size"] = @(size);
-    video[@"duration"] = @(asset.duration);
-    video[@"width"] = @(asset.pixelWidth);
-    video[@"height"] = @(asset.pixelHeight);
-    video[@"type"] = @"video";
-    video[@"mime"] = @"video/mp4";
-    // iOS only
-    video[@"coverUri"] = [self handleCropImage:coverImage phAsset:asset quality:quality][@"uri"];
-    video[@"favorite"] = @(asset.favorite);
-    video[@"mediaType"] = @(asset.mediaType);
-
-    return video;
-}
-
-/// 创建SyanImageCaches缓存目录
-- (BOOL)createDir {
-    NSString * path = [NSString stringWithFormat:@"%@SyanImageCaches", NSTemporaryDirectory()];;
-    NSFileManager *fileManager = [NSFileManager defaultManager];
-    BOOL isDir;
-    if  (![fileManager fileExistsAtPath:path isDirectory:&isDir]) {
-        //先判断目录是否存在，不存在才创建
-        BOOL res = [fileManager createDirectoryAtPath:path withIntermediateDirectories:YES attributes:nil error:nil];
-        return res;
-    } else return NO;
-}
-
-
-- (void)invokeSuccessWithResult:(NSArray *)photos {
-    if (self.callback) {
-        self.callback(@[[NSNull null], photos]);
-        self.callback = nil;
-    }
-    if (self.resolveBlock) {
-        self.resolveBlock(photos);
-        self.resolveBlock = nil;
-    }
-}
-
-- (void)invokeError {
-    if (self.callback) {
-        self.callback(@[@"取消"]);
-        self.callback = nil;
-    }
-    if (self.rejectBlock) {
-        self.rejectBlock(@"", @"取消", nil);
-        self.rejectBlock = nil;
-    }
-}
-
-+ (BOOL)requiresMainQueueSetup
-{
-   return YES;
-}
-
-- (UIViewController *)topViewController {
-    UIViewController *rootViewController = RCTPresentedViewController();
-    return rootViewController;
-}
-
-- (dispatch_queue_t)methodQueue {
-    return dispatch_get_main_queue();
+    return assets;
 }
 
 @end
