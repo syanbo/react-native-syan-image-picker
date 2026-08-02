@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  库自带的缩略图占位图。
+
+  老实现直接引用了 com.luck.picture.lib 的 R.drawable.picture_image_placeholder，
+  那是第三方库的私有资源 —— 在 AGP 8 默认开启 nonTransitiveRClass 之后会直接
+  编译失败。自带一份资源可以彻底摆脱这种耦合。
+-->
+<shape xmlns:android="http://schemas.android.com/apk/res/android"
+    android:shape="rectangle">
+    <solid android:color="#FFF0F0F3" />
+</shape>

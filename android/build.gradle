@@ -1,35 +1,185 @@
-apply plugin: 'com.android.library'
+import groovy.json.JsonSlurper
+
+/**
+ * 本库需要同时支持 RN 0.67.5 与最新版本，二者横跨 Android 构建体系的两次断代。
+ * 下面三处条件逻辑就是为此存在的，改动前请先读 README 的"兼容性"一节：
+ *
+ *  1. namespace / manifest —— AGP < 7.3 不认识 namespace，AGP 8 又禁止 manifest
+ *     里的 package=，因此这里按 AGP 版本在两份 manifest 之间切换。
+ *  2. React Native 制品名 —— RN 0.71 起由 react-native 改名为 react-android。
+ *  3. Kotlin 插件 —— RN 0.67 模板本身不带 Kotlin，库必须自带 classpath，
+ *     同时允许宿主用 ext.kotlinVersion 覆盖以避免版本冲突。
+ */
 
 def safeExtGet(prop, fallback) {
     rootProject.ext.has(prop) ? rootProject.ext.get(prop) : fallback
 }
 
-def DEFAULT_COMPILE_SDK_VERSION   = 27
-def DEFAULT_TARGET_SDK_VERSION    = 27
-def DEFAULT_MIN_SDK_VERSION       = 16
-def GLIDE_VERSION = safeExtGet("glideVersion", "4.11.0")
-def PICTURE_VERSION = safeExtGet("pictureVersion", "v2.7.3-rc08")
-
-android {
-    compileSdkVersion rootProject.hasProperty('compileSdkVersion') ? rootProject.compileSdkVersion : DEFAULT_COMPILE_SDK_VERSION
-    buildToolsVersion = '28.0.3'
-
-    defaultConfig {
-        minSdkVersion rootProject.hasProperty('minSdkVersion') ? rootProject.minSdkVersion : DEFAULT_MIN_SDK_VERSION
-        targetSdkVersion rootProject.hasProperty('targetSdkVersion') ? rootProject.targetSdkVersion : DEFAULT_TARGET_SDK_VERSION
-        versionCode 1
-    }
-    lintOptions {
-        abortOnError false
-    }
-    compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+/** AGP 7.3 起才有 namespace DSL；7.0–7.2（RN 0.67/0.68 时代）没有。 */
+def agpSupportsNamespace() {
+    try {
+        def version = Class.forName('com.android.Version')
+                .getDeclaredField('ANDROID_GRADLE_PLUGIN_VERSION')
+                .get(null)
+                .toString()
+        def parts = version.tokenize('.')
+        def major = parts[0].toInteger()
+        def minor = parts.size() > 1 ? parts[1].toInteger() : 0
+        return major > 7 || (major == 7 && minor >= 3)
+    } catch (Throwable ignored) {
+        // 探测不到就按旧行为走，保证老工程仍可构建。
+        return false
     }
 }
 
+/** 解析宿主实际使用的 RN 版本，用来决定依赖哪个制品。 */
+def resolveReactNativeMinor() {
+    // 与 buildscript 中的 Kotlin 版本探测保持同一优先级：消费方工程优先。
+    def candidates = [
+            file("${rootProject.projectDir}/node_modules/react-native/package.json"),
+            file("${rootProject.projectDir}/../node_modules/react-native/package.json"),
+            file("${projectDir}/../../react-native/package.json"),
+            file("${projectDir}/../node_modules/react-native/package.json"),
+    ]
+    def pkg = candidates.find { it.exists() }
+    if (pkg == null) {
+        // 找不到就当作新版本处理 —— 新工程远多于老工程。
+        return 999
+    }
+    def version = new JsonSlurper().parseText(pkg.text).version.toString()
+    if (!version.startsWith('0.')) {
+        return 999 // 1.x / nightly
+    }
+    return version.tokenize('.')[1].toInteger()
+}
+
+def supportsNamespace = agpSupportsNamespace()
+def reactNativeMinor = resolveReactNativeMinor()
+
+/*
+ * JVM 目标必须与宿主的 Java 编译任务一致，否则 Gradle 会直接报
+ * "Inconsistent JVM Target Compatibility Between Java and Kotlin Tasks"。
+ * RN 0.73 起模板统一用 Java 17，更早的版本是 Java 11。
+ */
+def javaTarget = safeExtGet('javaVersion', reactNativeMinor >= 73 ? 17 : 11)
+def javaVersion = JavaVersion.toVersion(javaTarget)
+
+buildscript {
+    /*
+     * Kotlin 版本必须跟着 RN 版本走，两头都会卡：
+     *
+     *  - 新 RN（0.73+）的 react-android 是用 Kotlin 2.1 编译的，其 metadata
+     *    版本为 2.1.0；用 1.9 的编译器去读会直接报 "compiled with an
+     *    incompatible version of Kotlin"，连 kotlin-stdlib 都加载不了。
+     *  - 反过来，Kotlin 1.9 / 2.x 的 Gradle 插件都要求 Gradle **7.6.3+**，而
+     *    RN 0.67.5 用的是 Gradle 7.3 —— 实测会直接报
+     *    "Gradle Version Incompatible with Kotlin Gradle Plugin"。
+     *    能配 Gradle 7.3 的最高 Kotlin 是 1.8.x（其最低要求为 Gradle 6.8.3）。
+     *
+     * 所以这里按 RN 版本选择默认值。RN 0.73+ 的模板本身会在 ext 里定义
+     * kotlinVersion，那种情况下优先用宿主的值。
+     */
+    def resolveDefaultKotlinVersion = {
+        try {
+            // 顺序很重要：**消费方工程**的 RN 版本优先。库要迁就它所在的 App，
+            // 而不是反过来。仓库自身开发时 root 目录下也有一份 RN，若先匹配到
+            // 那一份，在老工程里就会选出过新的 Kotlin。
+            def candidates = [
+                    new File(rootDir, 'node_modules/react-native/package.json'),
+                    new File(rootDir, '../node_modules/react-native/package.json'),
+                    new File(projectDir, '../../react-native/package.json'),
+                    new File(projectDir, '../node_modules/react-native/package.json'),
+            ]
+            def pkg = candidates.find { it.exists() }
+            if (pkg == null) return '2.1.20'
+
+            def version = new groovy.json.JsonSlurper()
+                    .parseText(pkg.text).version.toString()
+            if (!version.startsWith('0.')) return '2.1.20'
+
+            return version.tokenize('.')[1].toInteger() >= 73 ? '2.1.20' : '1.8.22'
+        } catch (Throwable ignored) {
+            return '2.1.20'
+        }
+    }
+
+    // 宿主可以用 ext.kotlinVersion 覆盖，以避免与自己的 Kotlin 插件版本冲突。
+    def kotlinVersion = rootProject.ext.has('kotlinVersion')
+            ? rootProject.ext.get('kotlinVersion')
+            : resolveDefaultKotlinVersion()
+
+    repositories {
+        google()
+        mavenCentral()
+    }
+    dependencies {
+        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlinVersion"
+    }
+}
+
+apply plugin: 'com.android.library'
+apply plugin: 'org.jetbrains.kotlin.android'
+
+android {
+    compileSdkVersion safeExtGet('compileSdkVersion', 34)
+
+    if (supportsNamespace) {
+        namespace 'com.syanpicker'
+        // 这份 manifest 没有 package= 属性，AGP 8 要求如此。
+        sourceSets {
+            main {
+                manifest.srcFile 'src/main/AndroidManifestNew.xml'
+            }
+        }
+    }
+
+    defaultConfig {
+        minSdkVersion safeExtGet('minSdkVersion', 21)
+        targetSdkVersion safeExtGet('targetSdkVersion', 34)
+        consumerProguardFiles 'consumer-rules.pro'
+    }
+
+    compileOptions {
+        sourceCompatibility javaVersion
+        targetCompatibility javaVersion
+    }
+
+    kotlinOptions {
+        // 必须与上面的 compileOptions 完全一致。
+        jvmTarget = javaVersion.toString()
+    }
+
+    // AGP 7.0 用 lintOptions，7.1+ 用 lint。取交集写法以兼容两端。
+    lintOptions {
+        abortOnError false
+    }
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
 dependencies {
-    implementation 'com.facebook.react:react-native:+'
-    implementation "io.github.lucksiege:pictureselector:${PICTURE_VERSION}"
-    implementation "com.github.bumptech.glide:glide:${GLIDE_VERSION}"
+    if (reactNativeMinor >= 71) {
+        //noinspection GradleDynamicVersion - 版本由宿主的 RN Gradle 插件提供
+        implementation 'com.facebook.react:react-android'
+    } else {
+        //noinspection GradleDynamicVersion - RN 0.70 及更早只有这个坐标
+        implementation 'com.facebook.react:react-native:+'
+    }
+
+    def pictureSelectorVersion = safeExtGet('pictureSelectorVersion', 'v3.11.3')
+
+    implementation "io.github.lucksiege:pictureselector:${pictureSelectorVersion}"
+    implementation "io.github.lucksiege:ucrop:${pictureSelectorVersion}"
+
+    // 压缩由本库自研（见 CompressPlan / ImageCompressEngine），不再依赖 Luban
+    // （io.github.lucksiege:compress）—— 它把质量写死为 60 且不接受尺寸上限。
+    // exifinterface 用于压缩后修正拍摄方向，PictureSelector 已传递依赖，这里显式声明。
+    implementation "androidx.exifinterface:exifinterface:1.3.7"
+    implementation "com.github.bumptech.glide:glide:${safeExtGet('glideVersion', '4.16.0')}"
+
+    // 仅用于 CompressPlanTest（纯 JVM，不需要设备）。testImplementation 不会下发给消费者。
+    testImplementation 'junit:junit:4.13.2'
 }

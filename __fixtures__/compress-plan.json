@@ -1,0 +1,18 @@
+[
+  {"name": "手机横拍原图",        "width": 4032,  "height": 3024, "sampleSize": 2, "outWidth": 2016,  "outHeight": 1512},
+  {"name": "手机竖拍原图",        "width": 3024,  "height": 4032, "sampleSize": 2, "outWidth": 1512,  "outHeight": 2016},
+  {"name": "比例恰为 0.5625",     "width": 1920,  "height": 1080, "sampleSize": 1, "outWidth": 1920,  "outHeight": 1080},
+  {"name": "720p",               "width": 1280,  "height": 720,  "sampleSize": 1, "outWidth": 1280,  "outHeight": 720},
+  {"name": "小图不压",            "width": 1000,  "height": 800,  "sampleSize": 1, "outWidth": 1000,  "outHeight": 800},
+  {"name": "刚过 1664 档",        "width": 1665,  "height": 1000, "sampleSize": 2, "outWidth": 833,   "outHeight": 500},
+  {"name": "刚到 4990 档",        "width": 4990,  "height": 3000, "sampleSize": 4, "outWidth": 1248,  "outHeight": 750},
+  {"name": "超过 10240 档",       "width": 10240, "height": 6000, "sampleSize": 8, "outWidth": 1280,  "outHeight": 750},
+  {"name": "竖版 1080p",          "width": 1080,  "height": 1920, "sampleSize": 1, "outWidth": 1080,  "outHeight": 1920},
+  {"name": "窄长图 0.5",          "width": 800,   "height": 1600, "sampleSize": 1, "outWidth": 800,   "outHeight": 1600},
+  {"name": "极窄图 0.333",        "width": 640,   "height": 1920, "sampleSize": 1, "outWidth": 640,   "outHeight": 1920},
+  {"name": "极小图",              "width": 100,   "height": 100,  "sampleSize": 1, "outWidth": 100,   "outHeight": 100},
+  {"name": "怪癖：一像素悬崖",     "width": 1663,  "height": 1663, "sampleSize": 2, "outWidth": 832,   "outHeight": 832},
+  {"name": "怪癖：全景图不压",     "width": 12000, "height": 1000, "sampleSize": 1, "outWidth": 12000, "outHeight": 1000},
+  {"name": "边界：1662 不压",      "width": 1662,  "height": 1662, "sampleSize": 1, "outWidth": 1662,  "outHeight": 1662},
+  {"name": "零值保护",            "width": 0,     "height": 0,    "sampleSize": 1, "outWidth": 0,     "outHeight": 0}
+]

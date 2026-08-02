@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  给 AGP >= 7.3 使用的 manifest。AGP 8 已禁止 manifest 中出现 package=，
+  包名改由 build.gradle 的 namespace 提供。
+  这份文件必须与 AndroidManifest.xml 保持同步（除 package= 外）。
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Android 12 及以下 -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Android 13+ 的分类媒体权限 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+
+    <!-- Android 14+ 的"仅选择部分照片" -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+
+    <!-- PictureSelector 拉起相机前会检查 CAMERA 权限，必须声明，说明见 AndroidManifest.xml。 -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+</manifest>

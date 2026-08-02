@@ -1,8 +1,33 @@
-
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  给 AGP < 7.3（RN 0.67 / 0.68 时代）使用的 manifest —— 那时还没有 namespace DSL，
+  包名必须写在这里。AGP >= 7.3 会改用 AndroidManifestNew.xml，见 build.gradle。
+  两份文件除了 package= 之外必须保持一致。
+-->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-          package="com.syanpicker">
-    <application>
+    package="com.syanpicker">
 
-    </application>
+    <!-- Android 12 及以下 -->
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <!-- Android 13+ 的分类媒体权限 -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+
+    <!-- Android 14+ 的"仅选择部分照片" -->
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
+
+    <!--
+      必须声明 CAMERA。
+
+      裸的 ACTION_IMAGE_CAPTURE Intent 确实不需要这个权限，但本库走的是
+      PictureSelector，它在拉起相机前会执行
+      PermissionChecker.isCheckCamera() → checkSelfPermission(CAMERA)。
+      而 Android 对**未在清单中声明**的权限一律直接返回 DENIED 且不弹授权框，
+      不声明的话 captureImage / captureVideo / 相册内的相机入口全部打不开。
+    -->
+    <uses-permission android:name="android.permission.CAMERA" />
 
 </manifest>
