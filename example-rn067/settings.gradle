@@ -1,0 +1,3 @@
+rootProject.name = 'syan-floor-rn067'
+include ':react-native-syan-image-picker'
+project(':react-native-syan-image-picker').projectDir = new File(settingsDir, '../android')

@@ -1,0 +1,32 @@
+/*
+ * RN 0.67.5 支持下限的构建验证。
+ *
+ * 这里刻意**不是**一个完整的 RN App：RN 0.67 的模板依赖已下线的 jcenter，
+ * 其 iOS 工程也无法用现代 Xcode 构建，硬凑一个出来只会变成永远修不好的负担。
+ *
+ * 真正需要守住的是「库本身能在 AGP 7.x / Gradle 7.x / Kotlin 1.8 / RN 0.67.5
+ * 这套老工具链下编译通过」—— 这正是本工程做的事，CI 也跑同一份。
+ *
+ * 用法：
+ *   npm install --prefix . react-native@0.67.5
+ *   gradle :react-native-syan-image-picker:assembleRelease
+ */
+buildscript {
+    ext {
+        // RN 0.67 模板的取值
+        compileSdkVersion = 31
+        targetSdkVersion  = 31
+        minSdkVersion     = 21
+    }
+    repositories { google(); mavenCentral() }
+    dependencies { classpath 'com.android.tools.build:gradle:7.2.2' }
+}
+
+allprojects {
+    repositories {
+        // RN 0.71 之前不发布到 Maven Central，AAR 随 npm 包一起下发。
+        maven { url "$rootDir/node_modules/react-native/android" }
+        google()
+        mavenCentral()
+    }
+}

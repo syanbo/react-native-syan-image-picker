@@ -1,0 +1,8 @@
+{
+  "name": "syan-floor-rn067",
+  "private": true,
+  "description": "验证本库在 React Native 0.67.5（支持下限）上仍可构建",
+  "dependencies": {
+    "react-native": "0.67.5"
+  }
+}
