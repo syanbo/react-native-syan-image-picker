@@ -1,46 +1,47 @@
-
-# OSX
-#
-.DS_Store
-
-# node.js
-#
+# dependencies
 node_modules/
+
+# build output
+lib/
+
+# OS
+.DS_Store
+*.log
 npm-debug.log
 yarn-error.log
-  
 
-# Xcode
-#
+# editors
+.idea/
+.vscode/
+*.iml
+
+# Android
 build/
+.gradle/
+local.properties
+.cxx/
+*.keystore
+
+# iOS / Xcode
+Pods/
 *.pbxuser
 !default.pbxuser
-*.mode1v3
-!default.mode1v3
-*.mode2v3
-!default.mode2v3
-*.perspectivev3
-!default.perspectivev3
-xcuserdata
 *.xccheckout
 *.moved-aside
-DerivedData
+xcuserdata/
+DerivedData/
 *.hmap
 *.ipa
 *.xcuserstate
 project.xcworkspace
-      
 
-# Android/IntelliJ
-#
-build/
-.idea
-.gradle
-local.properties
-*.iml
+# misc
+coverage/
+*.tgz
+.eslintcache
 
-# BUCK
-buck-out/
-\.buckd/
-*.keystore
-      
+# example 构建产物
+example/ios/Pods/
+example/ios/build/
+example/android/.cxx/
+example/vendor/

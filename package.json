@@ -1,60 +1,87 @@
 {
   "name": "react-native-syan-image-picker",
-  "version": "0.5.3",
-  "description": "React-Native 多图片选择 支持裁剪 压缩",
-  "main": "src/index.js",
-  "types": "src/index.d.ts",
-  "source": "src/index",
+  "version": "1.0.0",
+  "description": "React Native 多图片选择组件，支持裁剪与压缩",
+  "main": "lib/commonjs/index.js",
+  "module": "lib/module/index.js",
+  "types": "lib/typescript/src/index.d.ts",
+  "react-native": "src/index.ts",
+  "source": "src/index.ts",
   "files": [
     "src",
-    "ios",
+    "lib",
     "android",
+    "ios",
     "RNSyanImagePicker.podspec",
-    "LICENSE",
+    "!android/build",
+    "!android/.gradle",
+    "!ios/tests",
+    "!**/__tests__",
     "README.md",
-    "CHANGELOG.md"
+    "MIGRATION.md",
+    "LICENSE"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "pu": "npm publish",
-    "release": "release-it"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint src __tests__ example",
+    "test": "jest",
+    "clean": "del-cli lib",
+    "prepare": "bob build"
   },
   "keywords": [
     "react-native",
     "image",
     "image-picker",
+    "video-picker",
     "syan",
     "PictureSelector",
     "TZImagePickerController",
-    "Photo"
+    "photo"
   ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/syanbo/react-native-syan-image-picker.git"
+  },
+  "homepage": "https://github.com/syanbo/react-native-syan-image-picker#readme",
+  "bugs": {
+    "url": "https://github.com/syanbo/react-native-syan-image-picker/issues"
+  },
   "author": "syan",
   "license": "MIT",
+  "peerDependencies": {
+    "react": "*",
+    "react-native": "*"
+  },
   "devDependencies": {
-    "@release-it/conventional-changelog": "^2.0.1",
-    "release-it": "^14.11.6"
+    "@react-native/babel-preset": "0.86.2",
+    "@types/jest": "^30.0.0",
+    "@types/react": "^19.2.0",
+    "babel-jest": "^30.4.1",
+    "del-cli": "^7.0.0",
+    "eslint": "^9.0.0",
+    "jest": "^30.4.2",
+    "prettier": "^3.9.6",
+    "react": "19.2.8",
+    "react-native": "0.86.2",
+    "react-native-builder-bob": "^0.43.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.65.0"
   },
-  "release-it": {
-    "git": {
-      "commitMessage": "chore: release ${version}",
-      "tagName": "v${version}"
-    },
-    "npm": {
-      "publish": true
-    },
-    "github": {
-      "release": true
-    },
-    "plugins": {
-      "@release-it/conventional-changelog": {
-        "preset": "angular",
-        "infile": "CHANGELOG.md"
-      }
-    }
+  "react-native-builder-bob": {
+    "source": "src",
+    "output": "lib",
+    "targets": [
+      "commonjs",
+      "module",
+      "typescript"
+    ]
   },
-  "config": {
-    "commitizen": {
-      "path": "./node_modules/cz-conventional-changelog"
-    }
+  "jest": {
+    "testEnvironment": "node",
+    "testPathIgnorePatterns": [
+      "/node_modules/",
+      "/lib/",
+      "/example"
+    ]
   }
 }
