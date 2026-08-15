@@ -24,8 +24,6 @@ import android.os.SystemClock
 import com.luck.picture.lib.basic.PictureCommonFragment
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.atomic.AtomicReference
 
 @ReactModule(name = RNSyanImagePickerModule.NAME)
 class RNSyanImagePickerModule(
@@ -38,7 +36,7 @@ class RNSyanImagePickerModule(
         private const val GRID_SPAN_COUNT = 4
 
         /**
-         * 与 PictureSelector 内部 `DoubleUtils` 的防重复点击窗口保持一致。
+         * 与 PictureSelector v3.11.3 `DoubleUtils.TIME` 的防重复点击窗口保持一致。
          *
          * 它的 `forResult()` 第一件事就是 `isFastDoubleClick()`，窗口内的调用会被
          * **静默丢弃** —— 而那时我们已经建好了 PendingRequest，promise 就永远挂住了。
@@ -53,10 +51,9 @@ class RNSyanImagePickerModule(
     /** 进度监听者计数。为 0 时一条事件也不发，不订阅的调用方零开销。 */
     private val progressListenerCount = AtomicInteger(0)
 
-    /** 当前进行中的请求。同一时刻只允许一个选择器。 */
-    private val activeRequest = AtomicReference<PendingRequest?>(null)
-
-    private val lastLaunchAt = AtomicLong(0L)
+    private val launchGate = LaunchGate(LAUNCH_DEBOUNCE_MS) {
+        SystemClock.elapsedRealtime()
+    }
 
     /**
      * 结果映射（解码、base64、封面抽帧）跑在这里。
@@ -84,47 +81,50 @@ class RNSyanImagePickerModule(
         val request = ImageRequest.from(options)
         // 每次请求一个独立句柄，回调闭包独占持有，天然不会串到别的请求上。
         val pending = beginRequest(promise) ?: return
-
-        PictureSelector.create(activity)
-            .openGallery(SelectMimeType.ofImage())
-            .setImageEngine(GlideImageEngine)
-            .setSandboxFileEngine(SandboxEngine)
-            .setSelectorUIStyle(
-                SelectorStyle.build(request.wechatStyle, request.showSelectionIndex),
-            )
-            .setMaxSelectNum(request.maxCount)
-            .setMinSelectNum(request.minCount)
-            .setSelectionMode(
-                if (request.maxCount > 1) SelectModeConfig.MULTIPLE
-                else SelectModeConfig.SINGLE,
-            )
-            .setImageSpanCount(GRID_SPAN_COUNT)
-            .setQuerySortOrder(sortOrder(request.sortAscending))
-            .setFilterMaxFileSize(request.maxFileSize.toLong())
-            .setSelectMinFileSize(request.minFileSize.toLong())
-            .isDisplayCamera(request.showCameraButton)
-            .isGif(request.allowGif)
-            // 这三项 PictureSelector 默认就是 true，这里显式透传用户选择。
-            // 与 isGif 一样，都是**查询层**过滤 —— 不满足的项根本不出现在列表里。
-            .isWebp(request.allowWebp)
-            .isBmp(request.allowBmp)
-            .isHeic(request.allowHeic)
-            .isOriginalControl(request.allowOriginal)
-            .setSelectedData(toLocalMedia(request.selectedUris))
-            .setPermissionDeniedListener { fragment, _, _, _ ->
-                rejectPermission(pending, fragment)
-            }
-            .apply {
-                if (request.compress.enabled) {
-                    setCompressEngine(ImageCompressEngine(request.compress))
+        try {
+            PictureSelector.create(activity)
+                .openGallery(SelectMimeType.ofImage())
+                .setImageEngine(GlideImageEngine)
+                .setSandboxFileEngine(SandboxEngine)
+                .setSelectorUIStyle(
+                    SelectorStyle.build(request.wechatStyle, request.showSelectionIndex),
+                )
+                .setMaxSelectNum(request.maxCount)
+                .setMinSelectNum(request.minCount)
+                .setSelectionMode(
+                    if (request.maxCount > 1) SelectModeConfig.MULTIPLE
+                    else SelectModeConfig.SINGLE,
+                )
+                .setImageSpanCount(GRID_SPAN_COUNT)
+                .setQuerySortOrder(sortOrder(request.sortAscending))
+                .setFilterMaxFileSize(request.maxFileSize.toLong())
+                .setSelectMinFileSize(request.minFileSize.toLong())
+                .isDisplayCamera(request.showCameraButton)
+                .isGif(request.allowGif)
+                // 这三项 PictureSelector 默认就是 true，这里显式透传用户选择。
+                // 与 isGif 一样，都是**查询层**过滤 —— 不满足的项根本不出现在列表里。
+                .isWebp(request.allowWebp)
+                .isBmp(request.allowBmp)
+                .isHeic(request.allowHeic)
+                .isOriginalControl(request.allowOriginal)
+                .setSelectedData(toLocalMedia(request.selectedUris))
+                .setPermissionDeniedListener { fragment, _, _, _ ->
+                    rejectPermission(pending, fragment)
                 }
-                // 裁剪只在单选时有意义 —— 多选时 UCrop 的多图流程与本库的
-                // 结果契约对不上，直接忽略，并已在类型注释中写明。
-                if (request.crop.enabled && request.maxCount == 1) {
-                    setCropEngine(UCropEngine(request.crop))
+                .apply {
+                    if (request.compress.enabled) {
+                        setCompressEngine(ImageCompressEngine(request.compress))
+                    }
+                    // 裁剪只在单选时有意义 —— 多选时 UCrop 的多图流程与本库的
+                    // 结果契约对不上，直接忽略，并已在类型注释中写明。
+                    if (request.crop.enabled && request.maxCount == 1) {
+                        setCropEngine(UCropEngine(request.crop))
+                    }
                 }
-            }
-            .forResult(imageListener(pending, request.includeBase64, request.keepOriginal))
+                .forResult(imageListener(pending, request.includeBase64, request.keepOriginal))
+        } catch (t: Throwable) {
+            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
+        }
     }
 
     @ReactMethod
@@ -132,29 +132,32 @@ class RNSyanImagePickerModule(
         val activity = requireActivity(promise) ?: return
         val request = VideoRequest.from(options)
         val pending = beginRequest(promise) ?: return
-
-        PictureSelector.create(activity)
-            .openGallery(SelectMimeType.ofVideo())
-            .setImageEngine(GlideImageEngine)
-            .setSandboxFileEngine(SandboxEngine)
-            .setMaxSelectNum(request.maxCount)
-            .setMinSelectNum(request.minCount)
-            .setSelectionMode(
-                if (request.maxCount > 1) SelectModeConfig.MULTIPLE
-                else SelectModeConfig.SINGLE,
-            )
-            .setImageSpanCount(GRID_SPAN_COUNT)
-            .setQuerySortOrder(sortOrder(request.sortAscending))
-            .setFilterMaxFileSize(request.maxFileSize.toLong())
-            .setSelectMinFileSize(request.minFileSize.toLong())
-            .isDisplayCamera(request.showCameraButton)
-            .setFilterVideoMaxSecond(request.maxDuration)
-            .setFilterVideoMinSecond(request.minDuration)
-            .setSelectedData(toLocalMedia(request.selectedUris))
-            .setPermissionDeniedListener { fragment, _, _, _ ->
-                rejectPermission(pending, fragment)
-            }
-            .forResult(videoListener(pending))
+        try {
+            PictureSelector.create(activity)
+                .openGallery(SelectMimeType.ofVideo())
+                .setImageEngine(GlideImageEngine)
+                .setSandboxFileEngine(SandboxEngine)
+                .setMaxSelectNum(request.maxCount)
+                .setMinSelectNum(request.minCount)
+                .setSelectionMode(
+                    if (request.maxCount > 1) SelectModeConfig.MULTIPLE
+                    else SelectModeConfig.SINGLE,
+                )
+                .setImageSpanCount(GRID_SPAN_COUNT)
+                .setQuerySortOrder(sortOrder(request.sortAscending))
+                .setFilterMaxFileSize(request.maxFileSize.toLong())
+                .setSelectMinFileSize(request.minFileSize.toLong())
+                .isDisplayCamera(request.showCameraButton)
+                .setFilterVideoMaxSecond(request.maxDuration)
+                .setFilterVideoMinSecond(request.minDuration)
+                .setSelectedData(toLocalMedia(request.selectedUris))
+                .setPermissionDeniedListener { fragment, _, _, _ ->
+                    rejectPermission(pending, fragment)
+                }
+                .forResult(videoListener(pending))
+        } catch (t: Throwable) {
+            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
+        }
     }
 
     /* ---------------------------------------------------------------------- */
@@ -166,22 +169,25 @@ class RNSyanImagePickerModule(
         val activity = requireActivity(promise) ?: return
         val request = CaptureImageRequest.from(options)
         val pending = beginRequest(promise) ?: return
-
-        PictureSelector.create(activity)
-            .openCamera(SelectMimeType.ofImage())
-            .setSandboxFileEngine(SandboxEngine)
-            .setPermissionDeniedListener { fragment, _, _, _ ->
-                rejectPermission(pending, fragment)
-            }
-            .apply {
-                if (request.compress.enabled) {
-                    setCompressEngine(ImageCompressEngine(request.compress))
+        try {
+            PictureSelector.create(activity)
+                .openCamera(SelectMimeType.ofImage())
+                .setSandboxFileEngine(SandboxEngine)
+                .setPermissionDeniedListener { fragment, _, _, _ ->
+                    rejectPermission(pending, fragment)
                 }
-                if (request.crop.enabled) {
-                    setCropEngine(UCropEngine(request.crop))
+                .apply {
+                    if (request.compress.enabled) {
+                        setCompressEngine(ImageCompressEngine(request.compress))
+                    }
+                    if (request.crop.enabled) {
+                        setCropEngine(UCropEngine(request.crop))
+                    }
                 }
-            }
-            .forResult(imageListener(pending, request.includeBase64, request.keepOriginal))
+                .forResult(imageListener(pending, request.includeBase64, request.keepOriginal))
+        } catch (t: Throwable) {
+            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
+        }
     }
 
     @ReactMethod
@@ -189,15 +195,18 @@ class RNSyanImagePickerModule(
         val activity = requireActivity(promise) ?: return
         val request = CaptureVideoRequest.from(options)
         val pending = beginRequest(promise) ?: return
-
-        PictureSelector.create(activity)
-            .openCamera(SelectMimeType.ofVideo())
-            .setSandboxFileEngine(SandboxEngine)
-            .setRecordVideoMaxSecond(request.recordDuration)
-            .setPermissionDeniedListener { fragment, _, _, _ ->
-                rejectPermission(pending, fragment)
-            }
-            .forResult(videoListener(pending))
+        try {
+            PictureSelector.create(activity)
+                .openCamera(SelectMimeType.ofVideo())
+                .setSandboxFileEngine(SandboxEngine)
+                .setRecordVideoMaxSecond(request.recordDuration)
+                .setPermissionDeniedListener { fragment, _, _, _ ->
+                    rejectPermission(pending, fragment)
+                }
+                .forResult(videoListener(pending))
+        } catch (t: Throwable) {
+            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
+        }
     }
 
     /* ---------------------------------------------------------------------- */
@@ -208,7 +217,8 @@ class RNSyanImagePickerModule(
      * 全屏预览一组本地文件。
      *
      * 纯展示，没有结果可返回；预览界面本身是另一个 Activity，关闭与否不影响
-     * 本次调用 —— 因此启动成功就直接 resolve，不占用 [activeRequest] 那道闸。
+     * 本次调用，因此启动成功就直接 resolve。启动仍须经过 600ms / busy 闸门，
+     * 但不占用坑位。
      */
     @ReactMethod
     fun openPreview(options: ReadableMap?, promise: Promise) {
@@ -234,17 +244,25 @@ class RNSyanImagePickerModule(
             return
         }
 
-        PictureSelector.create(activity)
-            .openPreview()
-            .setImageEngine(GlideImageEngine)
-            .isHidePreviewDownload(true)
-            .startActivityPreview(
-                request.index.coerceIn(0, media.size - 1),
-                false, // 不显示删除按钮：本库不持有选中态，删除无从回传
-                ArrayList(media),
-            )
+        if (!reservePreviewLaunch(promise)) return
 
-        promise.resolve(null)
+        try {
+            PictureSelector.create(activity)
+                .openPreview()
+                .setImageEngine(GlideImageEngine)
+                .isHidePreviewDownload(true)
+                .startActivityPreview(
+                    request.index.coerceIn(0, media.size - 1),
+                    false, // 不显示删除按钮：本库不持有选中态，删除无从回传
+                    ArrayList(media),
+                )
+            promise.resolve(null)
+        } catch (t: Throwable) {
+            promise.reject(
+                SyanErrorCode.EXPORT_FAILED.name,
+                t.message ?: "无法打开预览界面",
+            )
+        }
     }
 
     /* ---------------------------------------------------------------------- */
@@ -318,33 +336,32 @@ class RNSyanImagePickerModule(
     }
 
     /**
-     * 开始一次请求。
-     *
-     * 两道闸：已有请求进行中、或距上次启动不足 [LAUNCH_DEBOUNCE_MS]，都直接
-     * reject BUSY。后者是因为 PictureSelector 会静默吞掉窗口内的启动请求 ——
-     * 不挡的话那个 promise 就永远挂着了。
-     *
-     * @return 可用的句柄；已被挡下时返回 null（此时 promise 已结算，调用方应直接 return）。
+     * 开始一次相册/相机请求。闸门占用失败时 reject BUSY 并返回 null。
      */
     private fun beginRequest(promise: Promise): PendingRequest? {
-        val now = SystemClock.elapsedRealtime()
-
-        if (activeRequest.get() != null || now - lastLaunchAt.get() < LAUNCH_DEBOUNCE_MS) {
-            promise.reject(
-                SyanErrorCode.BUSY.name,
-                "选择器正在使用中，或两次调用间隔过短（<${LAUNCH_DEBOUNCE_MS}ms）",
-            )
+        val token = launchGate.begin() ?: run {
+            rejectBusy(promise)
             return null
         }
+        return PendingRequest(promise) { _ -> launchGate.finish(token) }
+    }
 
-        val pending = PendingRequest(promise) { activeRequest.set(null) }
-        if (!activeRequest.compareAndSet(null, pending)) {
-            promise.reject(SyanErrorCode.BUSY.name, "选择器正在使用中")
-            return null
+    /**
+     * 预览走同一把闸门的 600ms / busy 检查，但不长期占用。
+     */
+    private fun reservePreviewLaunch(promise: Promise): Boolean {
+        if (!launchGate.reservePreview()) {
+            rejectBusy(promise)
+            return false
         }
+        return true
+    }
 
-        lastLaunchAt.set(now)
-        return pending
+    private fun rejectBusy(promise: Promise) {
+        promise.reject(
+            SyanErrorCode.BUSY.name,
+            "选择器正在使用中，或两次调用间隔过短（<${LAUNCH_DEBOUNCE_MS}ms）",
+        )
     }
 
     /**

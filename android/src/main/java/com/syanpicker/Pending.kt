@@ -4,7 +4,6 @@ import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.Promise
 import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
-import java.util.concurrent.atomic.AtomicBoolean
 
 /** 会被 reject 出去的错误码，与 TS 侧的 SyanErrorCode 一一对应。 */
 internal enum class SyanErrorCode {
@@ -35,22 +34,17 @@ internal fun successResult(assets: WritableArray): WritableMap =
  * 新请求进来又会把旧请求"取消"掉。改成一次请求一个句柄之后，这两类串味在结构上
  * 就不可能发生了 —— 回调闭包里拿到的永远是它自己那一个。
  *
- * [AtomicBoolean] 保证结算幂等：无论触发多少条回调路径，promise 只会被结算一次。
+ * [OnceSettle] 保证结算幂等：无论触发多少条回调路径，promise 只会被结算一次。
  */
 internal class PendingRequest(
     private val promise: Promise,
-    /** 结算后触发，用来把模块级的"进行中"标记清掉。只会被调用一次。 */
-    private val onSettled: (() -> Unit)? = null,
+    /** 结算后触发；带上自身身份，避免旧请求误清掉模块级的新请求。 */
+    private val onSettled: ((PendingRequest) -> Unit)? = null,
 ) {
 
-    private val settled = AtomicBoolean(false)
+    private val once = OnceSettle { onSettled?.invoke(this) }
 
-    private inline fun settle(action: () -> Unit) {
-        if (settled.compareAndSet(false, true)) {
-            action()
-            onSettled?.invoke()
-        }
-    }
+    private fun settle(action: () -> Unit) = once.settle(action)
 
     fun resolve(assets: WritableArray) = settle {
         promise.resolve(successResult(assets))
