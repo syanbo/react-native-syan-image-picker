@@ -93,7 +93,7 @@ jobs:
         run: |
           npm ci --ignore-scripts
           npm --prefix example install --ignore-scripts
-      # 秒级完成：被测的两个类只依赖 Foundation / ImageIO / CoreGraphics，
+      # 秒级完成：被测的三个类只依赖 Foundation / ImageIO / CoreGraphics，
       # 编成命令行程序直接跑，不需要模拟器或 Xcode test target。
       - name: 原生单元测试
         run: ./ios/tests/run.sh

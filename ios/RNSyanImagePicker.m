@@ -9,11 +9,14 @@
 #import "SYCameraCapture.h"
 #import "SYPermissions.h"
 #import "SYPickerOptions.h"
+#import "SYPresent.h"
+#import "SYRequestGate.h"
 
 /// 与 TS 侧 SyanErrorCode 一一对应。
 static NSString *const kSYCodePermissionDenied = @"PERMISSION_DENIED";
 static NSString *const kSYCodeExportFailed = @"EXPORT_FAILED";
 static NSString *const kSYCodeUnsupported = @"UNSUPPORTED";
+static NSString *const kSYCodeBusy = @"BUSY";
 
 /// 标记某个 picker 是否已经被关闭过，避免重复 dismiss 把 completion 吞掉。
 static const void *kSYPickerDismissedKey = &kSYPickerDismissedKey;
@@ -24,11 +27,49 @@ static NSString *const kSYProgressEvent = @"RNSyanImagePicker:progress";
 @interface RNSyanImagePicker ()
 /// 有没有人在监听进度。没人听就一条事件也不发。
 @property (nonatomic, assign) BOOL hasProgressListeners;
+/** 当前占用原生展示通道的请求；请求令牌可防止迟到回调误释放新请求。 */
+@property (nonatomic, strong) SYRequestGate *requestGate;
 @end
 
 @implementation RNSyanImagePicker
 
 RCT_EXPORT_MODULE()
+
+- (instancetype)init {
+    self = [super init];
+    if (self) {
+        _requestGate = [SYRequestGate new];
+    }
+    return self;
+}
+
+#pragma mark - 请求串行化
+
+- (nullable NSObject *)beginModalRequestWithReject:(RCTPromiseRejectBlock)reject {
+    NSObject *token = [self.requestGate begin];
+    if (!token) {
+        reject(kSYCodeBusy, @"选择器正在使用中", nil);
+    }
+    return token;
+}
+
+- (RCTPromiseResolveBlock)guardedResolveForToken:(NSObject *)token
+                                         resolve:(RCTPromiseResolveBlock)resolve {
+    return ^(id result) {
+        if ([self.requestGate finish:token]) {
+            resolve(result);
+        }
+    };
+}
+
+- (RCTPromiseRejectBlock)guardedRejectForToken:(NSObject *)token
+                                        reject:(RCTPromiseRejectBlock)reject {
+    return ^(NSString *code, NSString *message, NSError *error) {
+        if ([self.requestGate finish:token]) {
+            reject(code, message, error);
+        }
+    };
+}
 
 #pragma mark - 进度事件
 
@@ -166,13 +207,23 @@ RCT_EXPORT_METHOD(pickImage
                   : (RCTPromiseResolveBlock)resolve rejecter
                   : (RCTPromiseRejectBlock)reject) {
     SYImageOptions *opts = [SYImageOptions fromDictionary:options];
+    NSObject *token = [self beginModalRequestWithReject:reject];
+    if (!token) {
+        return;
+    }
+    RCTPromiseResolveBlock guardedResolve =
+        [self guardedResolveForToken:token resolve:resolve];
+    RCTPromiseRejectBlock guardedReject =
+        [self guardedRejectForToken:token reject:reject];
 
     [SYPermissions requestPhotoLibraryAccess:^(BOOL granted) {
         if (!granted) {
-            reject(kSYCodePermissionDenied, @"用户拒绝了相册访问权限", nil);
+            guardedReject(kSYCodePermissionDenied, @"用户拒绝了相册访问权限", nil);
             return;
         }
-        [self presentImagePickerWithOptions:opts resolve:resolve reject:reject];
+        [self presentImagePickerWithOptions:opts
+                                    resolve:guardedResolve
+                                     reject:guardedReject];
     }];
 }
 
@@ -376,13 +427,23 @@ RCT_EXPORT_METHOD(pickVideo
                   : (RCTPromiseResolveBlock)resolve rejecter
                   : (RCTPromiseRejectBlock)reject) {
     SYVideoOptions *opts = [SYVideoOptions fromDictionary:options];
+    NSObject *token = [self beginModalRequestWithReject:reject];
+    if (!token) {
+        return;
+    }
+    RCTPromiseResolveBlock guardedResolve =
+        [self guardedResolveForToken:token resolve:resolve];
+    RCTPromiseRejectBlock guardedReject =
+        [self guardedRejectForToken:token reject:reject];
 
     [SYPermissions requestPhotoLibraryAccess:^(BOOL granted) {
         if (!granted) {
-            reject(kSYCodePermissionDenied, @"用户拒绝了相册访问权限", nil);
+            guardedReject(kSYCodePermissionDenied, @"用户拒绝了相册访问权限", nil);
             return;
         }
-        [self presentVideoPickerWithOptions:opts resolve:resolve reject:reject];
+        [self presentVideoPickerWithOptions:opts
+                                    resolve:guardedResolve
+                                     reject:guardedReject];
     }];
 }
 
@@ -561,13 +622,21 @@ RCT_EXPORT_METHOD(captureImage
                   : (RCTPromiseResolveBlock)resolve rejecter
                   : (RCTPromiseRejectBlock)reject) {
     SYCaptureImageOptions *opts = [SYCaptureImageOptions fromDictionary:options];
+    NSObject *token = [self beginModalRequestWithReject:reject];
+    if (!token) {
+        return;
+    }
+    RCTPromiseResolveBlock guardedResolve =
+        [self guardedResolveForToken:token resolve:resolve];
+    RCTPromiseRejectBlock guardedReject =
+        [self guardedRejectForToken:token reject:reject];
     [SYCameraCapture captureImageWithOptions:opts
                                   completion:^(NSDictionary *asset, NSError *error, BOOL cancelled) {
                                       [self settleCapture:asset
                                                     error:error
                                                 cancelled:cancelled
-                                                  resolve:resolve
-                                                   reject:reject];
+                                                  resolve:guardedResolve
+                                                   reject:guardedReject];
                                   }];
 }
 
@@ -576,13 +645,21 @@ RCT_EXPORT_METHOD(captureVideo
                   : (RCTPromiseResolveBlock)resolve rejecter
                   : (RCTPromiseRejectBlock)reject) {
     SYCaptureVideoOptions *opts = [SYCaptureVideoOptions fromDictionary:options];
+    NSObject *token = [self beginModalRequestWithReject:reject];
+    if (!token) {
+        return;
+    }
+    RCTPromiseResolveBlock guardedResolve =
+        [self guardedResolveForToken:token resolve:resolve];
+    RCTPromiseRejectBlock guardedReject =
+        [self guardedRejectForToken:token reject:reject];
     [SYCameraCapture captureVideoWithOptions:opts
                                   completion:^(NSDictionary *asset, NSError *error, BOOL cancelled) {
                                       [self settleCapture:asset
                                                     error:error
                                                 cancelled:cancelled
-                                                  resolve:resolve
-                                                   reject:reject];
+                                                  resolve:guardedResolve
+                                                   reject:guardedReject];
                                   }];
 }
 
@@ -624,6 +701,15 @@ RCT_EXPORT_METHOD(openPreview
         return;
     }
 
+    NSObject *token = [self beginModalRequestWithReject:reject];
+    if (!token) {
+        return;
+    }
+    RCTPromiseResolveBlock guardedResolve =
+        [self guardedResolveForToken:token resolve:resolve];
+    RCTPromiseRejectBlock guardedReject =
+        [self guardedRejectForToken:token reject:reject];
+
     // 解码放后台，present 回主线程。
     dispatch_async([self workQueue], ^{
         NSMutableArray<UIImage *> *photos = [NSMutableArray array];
@@ -640,7 +726,7 @@ RCT_EXPORT_METHOD(openPreview
         }
 
         if (photos.count == 0) {
-            reject(kSYCodeExportFailed, @"没有可预览的有效文件", nil);
+            guardedReject(kSYCodeExportFailed, @"没有可预览的有效文件", nil);
             return;
         }
 
@@ -660,14 +746,16 @@ RCT_EXPORT_METHOD(openPreview
             previewVc.modalPresentationStyle = UIModalPresentationFullScreen;
 
             UIViewController *presenter = RCTPresentedViewController();
-            if (!presenter) {
-                reject(kSYCodeUnsupported, @"找不到可用于展示预览的控制器", nil);
+            NSError *error = nil;
+            if (!SYPresenterIsReady(presenter) ||
+                !SYPresentViewController(presenter, previewVc, &error)) {
+                guardedReject(kSYCodeUnsupported,
+                              error.localizedDescription ?: @"找不到可用于展示预览的控制器",
+                              error);
                 return;
             }
-            [presenter presentViewController:previewVc animated:YES completion:nil];
-
-            // 与 Android 一致：预览一旦展示就 resolve，不等用户关闭。
-            resolve([NSNull null]);
+            // 与 Android 一致：展示成功即 resolve，不等用户关闭。
+            guardedResolve([NSNull null]);
         });
     });
 }
@@ -699,13 +787,15 @@ RCT_EXPORT_METHOD(clearCache
     picker.modalPresentationStyle = UIModalPresentationFullScreen;
 
     UIViewController *presenter = RCTPresentedViewController();
-    if (!presenter) {
+    NSError *error = nil;
+    if (!SYPresenterIsReady(presenter) || !SYPresentViewController(presenter, picker, &error)) {
         if (claim()) {
-            reject(kSYCodeUnsupported, @"找不到可用于展示选择器的控制器", nil);
+            reject(kSYCodeUnsupported,
+                   error.localizedDescription ?: @"找不到可用于展示选择器的控制器",
+                   error);
         }
         return;
     }
-    [presenter presentViewController:picker animated:YES completion:nil];
 }
 
 /**
