@@ -4,6 +4,7 @@
 
 #import "SYAssetExporter.h"
 #import "SYPermissions.h"
+#import "SYPresent.h"
 
 /// UTI 字面量。用常量而不是散落在各处的裸字符串。
 static NSString *const kSYUTTypeImage = @"public.image";
@@ -91,17 +92,21 @@ static NSString *const kSYUTTypeMovie = @"public.movie";
     }
 
     UIViewController *presenter = RCTPresentedViewController();
-    if (!presenter) {
+    NSError *presentError = nil;
+    if (!SYPresenterIsReady(presenter) ||
+        !SYPresentViewController(presenter, picker, &presentError)) {
+        // 必须走 finishWithAsset:error:，模块侧 settleCapture → guardedReject 才会释放令牌。
         [self finishWithAsset:nil
                         error:[NSError errorWithDomain:@"com.syanpicker.camera"
                                                   code:-1
                                               userInfo:@{
-                                                  NSLocalizedDescriptionKey : @"找不到可用于展示相机的控制器"
+                                                  NSLocalizedDescriptionKey :
+                                                      presentError.localizedDescription
+                                                          ?: @"找不到可用于展示相机的控制器"
                                               }]
                     cancelled:NO];
         return;
     }
-    [presenter presentViewController:picker animated:YES completion:nil];
 }
 
 #pragma mark - UIImagePickerControllerDelegate

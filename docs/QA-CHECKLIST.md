@@ -9,6 +9,7 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - 压缩算法两端一致性 —— Android `CompressPlanTest` / iOS `ios/tests/plan_test.m`，
   读同一份 `__fixtures__/compress-plan.json`
 - iOS 编解码正确性 —— `ios/tests/codec_test.m`
+- iOS 请求闸门 —— `ios/tests/request_gate_test.m`
 - 两端编译（最新 RN 与 RN 0.67.5 下限）
 
 **Android 的编解码路径没有自动化覆盖**（不在 CI 跑模拟器），见下方专项。

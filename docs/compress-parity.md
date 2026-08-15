@@ -33,7 +33,7 @@
 本地跑：
 
 ```sh
-./ios/tests/run.sh                                    # iOS 两套
+./ios/tests/run.sh                                    # iOS 三个
 cd example/android && ./gradlew \
   :react-native-syan-image-picker:testDebugUnitTest    # Android
 ```

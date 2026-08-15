@@ -18,7 +18,7 @@ Pod::Spec.new do |s|
   # 从 git 检出安装时会把 example/ios 下的 AppDelegate.m、main.m 一并卷进来，
   # 直接导致符号重复。
   s.source_files    = 'ios/**/*.{h,m}'
-  # ios/tests 下是两个各自带 int main() 的命令行测试程序（见 ios/tests/run.sh）。
+  # ios/tests 下是三个各自带 int main() 的命令行测试程序（见 ios/tests/run.sh）。
   # 不排除的话它们会被编进每个使用者的 pod target，App 链接时报 duplicate symbol _main。
   s.exclude_files   = 'ios/tests/**/*'
   s.requires_arc    = true
