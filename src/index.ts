@@ -1,8 +1,9 @@
 /**
  * react-native-syan-image-picker
  *
- * 五个方法，全部返回 Promise：
- * `pickImage` · `pickVideo` · `captureImage` · `captureVideo` · `clearCache`
+ * 六个方法，全部返回 Promise：
+ * `pickImage` · `pickVideo` · `captureImage` · `captureVideo` ·
+ * `openPreview` · `clearCache`
  *
  * 两条贯穿全库的约定：
  *
@@ -195,9 +196,8 @@ export function addProgressListener(
  * 可以及时释放空间。
  *
  * **未定义行为：** 在任意 `pick*` / `capture*` / `openPreview` 的 Promise
- * 尚未 settle 时调用。闸门不覆盖清缓存，并发调用可能删掉正在写出的文件，
- * 让随后 resolve 的 `file://` 404，或触发 `EXPORT_FAILED`。请等对应 Promise
- * 完成后再清。
+ * 尚未 settle 时调用。并发清缓存可能删掉正在写出的文件，让随后 resolve 的
+ * `file://` 404，或触发 `EXPORT_FAILED`。请等对应 Promise 完成后再清。
  */
 export async function clearCache(): Promise<void> {
   await SyanNative.clearCache();

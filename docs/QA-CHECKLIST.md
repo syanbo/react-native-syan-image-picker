@@ -29,14 +29,16 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 发 `1.0.0` / `npm publish --tag latest` 之前必须全部勾选。PR 7 **只勾本节**，
 并记下设备型号 / OS。漏勾不得进发布 PR。
 
-**硬前置（本节开跑之前）：**
+**开跑前（PR 7 真机勾选）：**
 
 - **PR 6**（example 验收入口：`openPreview` / `keepOriginal` /
   `showLoading: false` + `addProgressListener` / GIF）必须先合入。没有这些
   按钮就只能写临时脚本跑门闩，**不得**在 PR 6 未合时开始本节真机勾选。
-- **GitHub 默认分支必须在 `npm publish --tag latest` 之前切到 `v1`**。
-  `master` 留在 `1ed0bbb`（与 tag `v0.5.3-legacy` 同提交）；1.0 序列**不快进**
-  `master`。
+
+**publish 前（PR 8 / `npm publish --tag latest`，不是开跑前置）：**
+
+- **GitHub 默认分支必须切到 `v1`**。`master` 留在 `1ed0bbb`（与 tag
+  `v0.5.3-legacy` 同提交）；1.0 序列**不快进** `master`。
 
 **明确不在门闩内：**
 
@@ -48,8 +50,15 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 ### 闸门与结算
 
 - [ ] 两端连点 → 第二次 reject `BUSY`，无悬挂 Promise
-- [ ] 在 `beginRequest` / present 与 UI 出现之间杀进程或旋转宿主 Activity，
-      下一次调用不得永久 `BUSY`
+- [ ] 在 `beginRequest` / present 与 UI 出现之间**杀掉或重建宿主 Activity**
+      （不是杀进程），下一次调用不得永久 `BUSY`。
+      Android：example `MainActivity` 声明了 `configChanges`（含
+      `orientation|screenSize`），旋转**不会**重建 Activity，不能单靠转屏。
+      打开开发者选项「不保留活动 / Don’t keep activities」，点选图后立刻让
+      宿主离开前台以结束该 Activity；**不要**从多任务卡片划掉 App（那是杀
+      进程，闸门状态随进程消失，勾了等于没测）。
+      iOS：在 present 完成前让宿主进后台或打断转场后再回来，下一次
+      `pickImage` 不得一直 `BUSY`。
 
 ### 高风险路径
 
@@ -71,8 +80,12 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 
 - [ ] Limited + iCloud + `maxFileSize`：stat 超时后 fail-open 并结算，不得让
       下一次 `pickImage` 连续数分钟 `BUSY`
-- [ ] `example` `assembleRelease`（R8 开启）后打开相册，网格缩略图正常
-      （验证 `consumer-rules.pro` 对 PictureSelector / Glide / UCrop 的 keep）
+- [ ] 先把 `example/android/app/build.gradle` 的
+      `enableProguardInReleaseBuilds` 改为 `true`（example **默认是
+      `false`**，直接 `assembleRelease` 不会 minify，也走不到库的
+      `consumer-rules.pro`），再 `./gradlew :app:assembleRelease`，装包后
+      打开相册，网格缩略图正常（验证 minify 时 keep PictureSelector /
+      Glide / UCrop）
 
 ---
 

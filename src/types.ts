@@ -275,8 +275,7 @@ export interface PickImageOptions {
   /**
    * 界面风格，默认 `'default'`。
    *
-   * `'wechat'`：**仅 Android** 落地为带序号的选择态；**iOS 是 no-op**
-   * （选项会被解析，但没有任何读取方，不是「部分主题」）。
+   * `'wechat'`：Android 上为带序号的选择态；**iOS 是 no-op**（不是部分主题）。
    */
   style?: PickerStyle;
   /**
@@ -399,8 +398,8 @@ export interface SyanSubscription {
 /*
  * `clearCache()` 契约：在任意 `pick*` / `capture*` / `openPreview` 对应的
  * Promise **尚未 settle** 时调用是**未定义行为**。可能删掉正在写出的缓存文件，
- * 让随后 resolve 的 `file://` 404，或触发 `EXPORT_FAILED`。闸门不覆盖清缓存。
- * 请等对应 Promise 完成后再清。
+ * 让随后 resolve 的 `file://` 404，或触发 `EXPORT_FAILED`。请等对应 Promise
+ * 完成后再清。
  */
 
 /* -------------------------------------------------------------------------- */

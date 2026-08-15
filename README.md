@@ -263,7 +263,7 @@ promise 从调用那一刻就挂着，但那之前用户还在相册里挑图，
 | GIF | 两端都**不压缩**，原样返回 —— 重编码只会拿到第一帧 |
 | `allowGif: false` | Android 在查询层过滤，GIF 不出现在列表里；iOS 的 TZ 做不到隐藏（其 `allowPickingGif=NO` 只是"当作普通图片"），改为在结果返回前剔除 |
 | `allowWebp` / `allowBmp` / `allowHeic` | **仅 Android**（查询层过滤）。iOS 无对应能力，但通常不需要 —— 默认会重编码为 JPEG，只有"原图" / `compress: false` / GIF 才透传原始字节 |
-| `style: 'wechat'` | Android 上表现为**带序号的选择态**。**iOS 是 no-op**（选项会被解析，但没有任何读取方，不是「部分主题」）。PictureSelector v3 已移除内置微信主题，完整复刻需要整套资源，不在 1.0 范围内 |
+| `style: 'wechat'` | Android 上表现为**带序号的选择态**。**iOS 是 no-op**（不是部分主题）。PictureSelector v3 已移除内置微信主题，完整复刻需要整套资源，不在 1.0 范围内 |
 | `showLoading` | **仅 iOS**。Android 由 PictureSelector 自己在压缩阶段转圈 |
 | `transcode` | **仅 iOS**。Android 不重新编码视频 |
 
@@ -311,7 +311,7 @@ ext {
 
 | 目录 | 作用 |
 |---|---|
-| `example/` | 完整的 RN 示例 App，覆盖全部公开方法。**直接消费本地源码**，改库代码即可验证 |
+| `example/` | 完整的 RN 示例 App，**直接消费本地源码**。当前入口覆盖选图 / 裁剪 / base64 / 不压缩 / 视频 / 拍照 / 录像 / 回填 / 清缓存；**尚未**覆盖 `openPreview`、`keepOriginal`、`showLoading: false` + 进度、GIF（门闩所需按钮见 PR 6） |
 | `example-rn067/` | RN 0.67.5 支持下限的构建验证 |
 
 ```sh
