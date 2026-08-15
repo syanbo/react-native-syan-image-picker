@@ -216,7 +216,9 @@ static const NSTimeInterval kSYVideoExportTimeout = 180.0;
     NSString *uri = [NSURL fileURLWithPath:path].absoluteString;
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
     result[@"uri"] = uri;
-    result[@"originalUri"] = originalUri ?: uri;
+    if (originalUri.length > 0) {
+        result[@"originalUri"] = originalUri;
+    }
     result[@"width"] = @(width);
     result[@"height"] = @(height);
     result[@"size"] = @(data.length);
@@ -305,8 +307,10 @@ static const NSTimeInterval kSYVideoExportTimeout = 180.0;
 
             NSMutableDictionary *result = [NSMutableDictionary dictionary];
             result[@"uri"] = uri;
-            // 输出即原始字节，两者本就同一个文件。
-            result[@"originalUri"] = uri;
+            // 只有调用方明确要求保留原图时才暴露该可选字段。
+            if (keepOriginal) {
+                result[@"originalUri"] = uri;
+            }
             result[@"width"] = @(asset.pixelWidth > 0 ? asset.pixelWidth
                                                       : image.size.width * image.scale);
             result[@"height"] = @(asset.pixelHeight > 0 ? asset.pixelHeight
@@ -357,9 +361,10 @@ static const NSTimeInterval kSYVideoExportTimeout = 180.0;
         if (!path) {
             return nil;
         }
+        NSString *uri = [NSURL fileURLWithPath:path].absoluteString;
         return [self resultForPath:path
                               data:originalData
-                       originalUri:nil
+                       originalUri:keepOriginal ? uri : nil
                              width:asset.pixelWidth > 0 ? asset.pixelWidth
                                                         : image.size.width * image.scale
                             height:asset.pixelHeight > 0 ? asset.pixelHeight
