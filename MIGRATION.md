@@ -183,7 +183,7 @@ HEVC，用 `pickVideo({ transcode: true })` 恢复旧行为。passthrough 在某
 ## 六、行为差异（诚实说明）
 
 - **`style: 'wechat'`**：PictureSelector v3 已移除内置微信主题，1.0 在 Android 上
-  落地为"带序号的选择态"，不是像素级复刻。
+  落地为"带序号的选择态"，不是像素级复刻。**iOS 上是 no-op**（不是部分主题）。
 - **压缩已重写为 auto / manual 双模式**：不传 `compress` 走自动模式（与微信/Luban
   同源的启发式，两端同一套算法）；传对象则进入手动模式，`quality` / `maxWidth` /
   `maxHeight` / `minSize` **两端行为一致**。
