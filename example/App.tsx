@@ -1,9 +1,11 @@
 /**
  * react-native-syan-image-picker 示例。
  *
- * 覆盖全部五个方法，并刻意演示两条最容易被误用的约定：
+ * 覆盖公开方法，并刻意演示两条最容易被误用的约定：
  *  - 取消是正常结果（`cancelled`），不是异常
  *  - 库不持有选中态，"记住上次选择"靠把 assets 传回去
+ *
+ * 「验收」一节补齐发版门闩要用的入口：预览、keepOriginal、关闭 loading + 进度、GIF。
  *
  * @format
  */
@@ -20,10 +22,12 @@ import {
 } from 'react-native';
 
 import {
+  addProgressListener,
   captureImage,
   captureVideo,
   clearCache,
   isSyanError,
+  openPreview,
   pickImage,
   pickVideo,
   type ImageAsset,
@@ -69,6 +73,25 @@ export default function App() {
   );
 
   const imageAssets = assets.filter((a): a is ImageAsset => !isVideo(a));
+
+  /** 预览界面一展示就 resolve，不等用户关闭。 */
+  const previewLast = useCallback(async () => {
+    if (assets.length === 0) {
+      setStatus('预览：没有可预览的结果');
+      return;
+    }
+    try {
+      setStatus('预览…');
+      await openPreview(assets, {index: assets.length > 1 ? 1 : 0});
+      setStatus(`预览：已打开（${assets.length} 项，不等关闭）`);
+    } catch (error) {
+      if (isSyanError(error)) {
+        setStatus(`预览 失败 [${error.code}]：${error.message}`);
+      } else {
+        setStatus(`预览 失败：${String(error)}`);
+      }
+    }
+  }, [assets]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -148,7 +171,47 @@ export default function App() {
           />
         </Section>
 
+        <Section title="验收">
+          <Button
+            label={`预览上次结果（${assets.length} 项）`}
+            disabled={assets.length === 0}
+            onPress={previewLast}
+          />
+          <Button
+            label="选图 + keepOriginal"
+            onPress={() =>
+              run('keepOriginal', () =>
+                pickImage({maxCount: 9, keepOriginal: true}),
+              )
+            }
+          />
+          <Button
+            label="选图 + 关闭 loading（看进度）"
+            onPress={() =>
+              run('无 HUD', async () => {
+                const sub = addProgressListener(
+                  ({phase, completed, total}) => {
+                    setStatus(`处理中 ${phase} ${completed}/${total}`);
+                  },
+                );
+                try {
+                  return await pickImage({maxCount: 9, showLoading: false});
+                } finally {
+                  sub.remove();
+                }
+              })
+            }
+          />
+          <Button
+            label="选图 + 允许 GIF"
+            onPress={() =>
+              run('GIF', () => pickImage({maxCount: 9, allowGif: true}))
+            }
+          />
+        </Section>
+
         <Section title="缓存">
+          <Text style={styles.hint}>处理中请勿点清空缓存</Text>
           <Button
             label="清空缓存"
             onPress={async () => {
@@ -172,6 +235,7 @@ export default function App() {
                 {'\n'}
                 {(asset.size / 1024).toFixed(0)} KB
                 {isVideo(asset) ? `\n${(asset.duration / 1000).toFixed(1)}s` : ''}
+                {!isVideo(asset) && asset.originalUri ? '\n有 originalUri' : ''}
               </Text>
             </View>
           ))}
@@ -253,6 +317,7 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {backgroundColor: '#b8c4d9'},
   buttonText: {color: '#fff', fontSize: 14, textAlign: 'center'},
+  hint: {fontSize: 12, color: '#a33', marginBottom: 8},
   grid: {flexDirection: 'row', flexWrap: 'wrap', gap: 8},
   cell: {width: 96},
   thumb: {width: 96, height: 96, borderRadius: 4, backgroundColor: '#eee'},
