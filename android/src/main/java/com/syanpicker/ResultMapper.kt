@@ -7,6 +7,7 @@ import android.media.MediaMetadataRetriever
 import android.net.Uri
 import android.util.Base64
 import android.util.Base64OutputStream
+import androidx.exifinterface.media.ExifInterface
 import com.facebook.react.bridge.Arguments
 import com.facebook.react.bridge.WritableArray
 import com.facebook.react.bridge.WritableMap
@@ -164,7 +165,13 @@ internal object ResultMapper {
         val options = BitmapFactory.Options().apply { inJustDecodeBounds = true }
         BitmapFactory.decodeFile(path, options)
         if (options.outWidth > 0 && options.outHeight > 0) {
-            options.outWidth to options.outHeight
+            val orientation = runCatching {
+                ExifInterface(path).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL,
+                )
+            }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+            CompressPlan.uprightSize(options.outWidth, options.outHeight, orientation)
         } else {
             fallbackWidth to fallbackHeight
         }

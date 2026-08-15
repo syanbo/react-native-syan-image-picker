@@ -115,6 +115,65 @@ class CompressPlanTest {
     }
 
     @Test
+    fun `方向 6 和 8 应在旋转前交换目标宽高`() {
+        // 文件存储为 4032x3024，EXIF 6/8 摆正后为 3024x4032。
+        val uprightTarget = CompressPlan.fitInside(3024, 4032, 0, 1000)
+        assertEquals(750 to 1000, uprightTarget)
+
+        // 原始位图必须先在存储坐标中缩到 1000x750，旋转后才会得到 750x1000。
+        assertEquals(
+            1000 to 750,
+            CompressPlan.targetBeforeRotation(uprightTarget, 90),
+        )
+        assertEquals(
+            1000 to 750,
+            CompressPlan.targetBeforeRotation(uprightTarget, 270),
+        )
+    }
+
+    @Test
+    fun `方向 1 和 3 不应交换目标宽高`() {
+        val target = 750 to 1000
+        assertEquals(target, CompressPlan.targetBeforeRotation(target, 0))
+        assertEquals(target, CompressPlan.targetBeforeRotation(target, 180))
+    }
+
+    @Test
+    fun `EXIF 八种方向应包含完整旋转与镜像信息`() {
+        val expected = listOf(
+            ExifTransform(0, false),
+            ExifTransform(0, true),
+            ExifTransform(180, false),
+            ExifTransform(180, true),
+            ExifTransform(90, true),
+            ExifTransform(90, false),
+            ExifTransform(270, true),
+            ExifTransform(270, false),
+        )
+        expected.forEachIndexed { index, transform ->
+            assertEquals("EXIF ${index + 1}", transform, CompressPlan.exifTransform(index + 1))
+        }
+    }
+
+    @Test
+    fun `EXIF 5 到 8 的显示宽高应交换`() {
+        (1..4).forEach { orientation ->
+            assertEquals(4032 to 3024, CompressPlan.uprightSize(4032, 3024, orientation))
+        }
+        (5..8).forEach { orientation ->
+            assertEquals(3024 to 4032, CompressPlan.uprightSize(4032, 3024, orientation))
+        }
+    }
+
+    @Test
+    fun `手动压缩任一维度超出目标都必须精确缩放`() {
+        assertEquals(true, CompressPlan.exceedsTarget(1001, 750, 1000 to 750))
+        assertEquals(true, CompressPlan.exceedsTarget(1000, 751, 1000 to 750))
+        assertEquals(false, CompressPlan.exceedsTarget(1000, 750, 1000 to 750))
+        assertEquals(false, CompressPlan.exceedsTarget(999, 749, 1000 to 750))
+    }
+
+    @Test
     fun `零与负数不应导致崩溃或除零`() {
         assertEquals(1, CompressPlan.autoSampleSize(0, 0))
         assertEquals(1, CompressPlan.autoSampleSize(-1, 100))

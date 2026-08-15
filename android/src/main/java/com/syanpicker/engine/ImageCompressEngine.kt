@@ -12,6 +12,7 @@ import com.syanpicker.Cache
 import com.syanpicker.CompressConfig
 import com.syanpicker.CompressMode
 import com.syanpicker.CompressPlan
+import com.syanpicker.ExifTransform
 import java.io.File
 import java.io.FileOutputStream
 import java.io.InputStream
@@ -34,13 +35,13 @@ internal class ImageCompressEngine(
 ) : CompressFileEngine {
 
     private companion object {
-        /** 解码后再精确缩放的阈值：差距小于该比例就不值得多做一次 scale。 */
-        const val EXACT_SCALE_EPSILON = 0.01
-    }
-
-    // PictureSelector 在主线程调用本方法，解码和编码必须挪走。
-    private val worker = Executors.newSingleThreadExecutor { runnable ->
-        Thread(runnable, "syan-compress").apply { isDaemon = true }
+        /**
+         * 所有请求共用一个压缩线程。模块层已禁止并发选择器，不需要每次请求都创建
+         * 一个永不退出的 Executor；共用后整个进程最多保留一个 syan-compress 线程。
+         */
+        val SHARED_WORKER = Executors.newSingleThreadExecutor { runnable ->
+            Thread(runnable, "syan-compress").apply { isDaemon = true }
+        }
     }
 
     override fun onStartCompress(
@@ -48,7 +49,7 @@ internal class ImageCompressEngine(
         source: ArrayList<Uri>,
         call: OnKeyValueResultCallbackListener?,
     ) {
-        worker.execute {
+        SHARED_WORKER.execute {
             source.forEach { uri ->
                 // 每一项都必须回调，少一次 PictureSelector 就会一直等下去。
                 val result = runCatching { compress(context, uri) }.getOrNull()
@@ -96,7 +97,7 @@ internal class ImageCompressEngine(
         }
 
         val rawBounds = decodeBounds(context, uri) ?: return null
-        val rotation = exifRotation(context, uri)
+        val transform = exifTransform(context, uri)
 
         /*
          按**摆正之后**的尺寸来算计划。
@@ -106,7 +107,7 @@ internal class ImageCompressEngine(
          fitInside 得 1333×1000，旋转后变成 1000×1333 —— 比调用方要的上限超了 33%，
          而 iOS 量的是已摆正的图，同一份输入两端结果不同。
          */
-        val (srcWidth, srcHeight) = if (rotation == 90f || rotation == 270f) {
+        val (srcWidth, srcHeight) = if (transform.swapsDimensions) {
             rawBounds.second to rawBounds.first
         } else {
             rawBounds
@@ -135,9 +136,12 @@ internal class ImageCompressEngine(
         var bitmap = decodeSampled(context, uri, sampleSize) ?: return null
 
         if (target != null) {
-            val (tw, th) = target
-            val delta = kotlin.math.abs(bitmap.width - tw).toDouble() / tw
-            if (bitmap.width != tw && delta > EXACT_SCALE_EPSILON) {
+            /*
+             * target 是摆正坐标系中的尺寸，而此刻 bitmap 仍处于文件存储坐标系。
+             * 对 EXIF 5–8 的 90°/270° 变换必须先交换目标轴，否则会先拉伸再旋转。
+             */
+            val (tw, th) = CompressPlan.targetBeforeRotation(target, transform.rotationDegrees)
+            if (CompressPlan.exceedsTarget(bitmap.width, bitmap.height, tw to th)) {
                 val scaled = Bitmap.createScaledBitmap(bitmap, tw, th, true)
                 if (scaled != bitmap) {
                     bitmap.recycle()
@@ -146,7 +150,13 @@ internal class ImageCompressEngine(
             }
         }
 
-        bitmap = rotateBitmap(bitmap, rotation)
+        val transformed = transformBitmap(bitmap, transform)
+        if (transformed == null) {
+            // 变换失败时让 PictureSelector 沿用带 EXIF 的原文件，不能编码一份方向错误的图。
+            bitmap.recycle()
+            return null
+        }
+        bitmap = transformed
 
         /*
          有 alpha 就自动保 PNG —— 与 iOS 同一判据。
@@ -229,38 +239,36 @@ internal class ImageCompressEngine(
         return openStream(context, uri)?.use { BitmapFactory.decodeStream(it, null, options) }
     }
 
-    /**
-     * 读取 EXIF 方向对应的旋转角度。
-     *
-     * Luban 内部做了这件事，自研之后必须自己补上 —— 否则竖拍的照片压缩完会躺倒。
-     */
-    private fun exifRotation(context: Context, uri: Uri): Float =
-        runCatching {
+    /** 读取并归一化完整 EXIF 方向，包括 2/4/5/7 的镜像变换。 */
+    private fun exifTransform(context: Context, uri: Uri): ExifTransform {
+        val orientation = runCatching {
             openStream(context, uri)?.use { stream ->
-                when (
-                    ExifInterface(stream).getAttributeInt(
-                        ExifInterface.TAG_ORIENTATION,
-                        ExifInterface.ORIENTATION_NORMAL,
-                    )
-                ) {
-                    ExifInterface.ORIENTATION_ROTATE_90 -> 90f
-                    ExifInterface.ORIENTATION_ROTATE_180 -> 180f
-                    ExifInterface.ORIENTATION_ROTATE_270 -> 270f
-                    else -> 0f
-                }
-            } ?: 0f
-        }.getOrDefault(0f)
+                ExifInterface(stream).getAttributeInt(
+                    ExifInterface.TAG_ORIENTATION,
+                    ExifInterface.ORIENTATION_NORMAL,
+                )
+            } ?: ExifInterface.ORIENTATION_NORMAL
+        }.getOrDefault(ExifInterface.ORIENTATION_NORMAL)
+        return CompressPlan.exifTransform(orientation)
+    }
 
-    private fun rotateBitmap(bitmap: Bitmap, degrees: Float): Bitmap {
-        if (degrees == 0f) return bitmap
+    private fun transformBitmap(bitmap: Bitmap, transform: ExifTransform): Bitmap? {
+        if (transform.isIdentity) return bitmap
 
         return runCatching {
-            val matrix = Matrix().apply { postRotate(degrees) }
-            val rotated = Bitmap.createBitmap(
+            val matrix = Matrix().apply {
+                if (transform.rotationDegrees != 0) {
+                    setRotate(transform.rotationDegrees.toFloat())
+                }
+                if (transform.flipHorizontal) {
+                    postScale(-1f, 1f)
+                }
+            }
+            val transformed = Bitmap.createBitmap(
                 bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true,
             )
-            if (rotated != bitmap) bitmap.recycle()
-            rotated
-        }.getOrDefault(bitmap)
+            if (transformed != bitmap) bitmap.recycle()
+            transformed
+        }.getOrNull()
     }
 }

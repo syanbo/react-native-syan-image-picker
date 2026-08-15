@@ -5,6 +5,23 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
+ * 把 EXIF 的 8 种方向归一成“旋转 + 水平镜像”。
+ *
+ * 方向 4/5/7 的垂直镜像、转置和横向转置都可以由这两个操作组合得到；这样尺寸
+ * 计算与 Bitmap 矩阵共用同一份方向定义，不会各自漏掉一半情况。
+ */
+internal data class ExifTransform(
+    val rotationDegrees: Int,
+    val flipHorizontal: Boolean,
+) {
+    val swapsDimensions: Boolean
+        get() = rotationDegrees == 90 || rotationDegrees == 270
+
+    val isIdentity: Boolean
+        get() = rotationDegrees == 0 && !flipHorizontal
+}
+
+/**
  * 压缩计划的计算 —— **纯函数，无任何平台 API 依赖**。
  *
  * iOS 侧有一份逐行对应的实现（`SYCompressPlan`）。两边必须保持一致：
@@ -86,5 +103,44 @@ internal object CompressPlan {
         if (scale >= 1.0) return width to height
 
         return max(1, (width * scale).toInt()) to max(1, (height * scale).toInt())
+    }
+
+    /**
+     * EXIF 方向值 1–8 的完整映射。使用数字是为了让本文件保持纯 JVM、无需 Android API。
+     * 其中 4/5/7 通过“旋转后水平镜像”等价表示垂直镜像/转置。
+     */
+    fun exifTransform(orientation: Int): ExifTransform = when (orientation) {
+        2 -> ExifTransform(rotationDegrees = 0, flipHorizontal = true)
+        3 -> ExifTransform(rotationDegrees = 180, flipHorizontal = false)
+        4 -> ExifTransform(rotationDegrees = 180, flipHorizontal = true)
+        5 -> ExifTransform(rotationDegrees = 90, flipHorizontal = true)
+        6 -> ExifTransform(rotationDegrees = 90, flipHorizontal = false)
+        7 -> ExifTransform(rotationDegrees = 270, flipHorizontal = true)
+        8 -> ExifTransform(rotationDegrees = 270, flipHorizontal = false)
+        else -> ExifTransform(rotationDegrees = 0, flipHorizontal = false)
+    }
+
+    /** 返回应用 EXIF 后用户实际看到的宽高。方向 5–8 需要交换坐标轴。 */
+    fun uprightSize(width: Int, height: Int, orientation: Int): Pair<Int, Int> =
+        if (exifTransform(orientation).swapsDimensions) height to width else width to height
+
+    /** 手动压缩的上限是硬边界：任一解码尺寸超出目标都必须继续缩小。 */
+    fun exceedsTarget(width: Int, height: Int, target: Pair<Int, Int>): Boolean =
+        width > target.first || height > target.second
+
+    /**
+     * 把摆正坐标系中的目标尺寸换算回文件存储坐标系。
+     *
+     * BitmapFactory 解码出来的位图尚未应用 EXIF。方向为 5–8 中的 90°/270° 变换时，
+     * 存储坐标与摆正坐标的宽高轴相反；若直接把摆正尺寸应用到原始位图，会先拉伸
+     * 图片再旋转。180° 旋转不交换坐标轴。
+     */
+    fun targetBeforeRotation(target: Pair<Int, Int>, rotationDegrees: Int): Pair<Int, Int> {
+        val normalized = ((rotationDegrees % 360) + 360) % 360
+        return if (normalized == 90 || normalized == 270) {
+            target.second to target.first
+        } else {
+            target
+        }
     }
 }
