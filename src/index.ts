@@ -7,7 +7,7 @@
  * 两条贯穿全库的约定：
  *
  * - **用户取消不是错误。** 取消时 resolve 出 `{ cancelled: true, assets: [] }`，
- *   只有权限被拒、导出失败这类真正的异常才会 reject。
+ *   只有权限被拒、导出失败、`BUSY` 这类真正的异常才会 reject。
  * - **库不持有任何选中态。** 需要"记住上次选择"时把上次的 `assets` 通过
  *   `selectedAssets` 传回即可。
  */
@@ -193,6 +193,11 @@ export function addProgressListener(
  *
  * 这些文件写在应用的缓存目录下，系统也可能自行回收；在批量处理大图后主动调用
  * 可以及时释放空间。
+ *
+ * **未定义行为：** 在任意 `pick*` / `capture*` / `openPreview` 的 Promise
+ * 尚未 settle 时调用。闸门不覆盖清缓存，并发调用可能删掉正在写出的文件，
+ * 让随后 resolve 的 `file://` 404，或触发 `EXPORT_FAILED`。请等对应 Promise
+ * 完成后再清。
  */
 export async function clearCache(): Promise<void> {
   await SyanNative.clearCache();

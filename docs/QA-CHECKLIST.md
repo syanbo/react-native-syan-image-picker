@@ -2,7 +2,16 @@
 
 这类库的核心路径是**跨进程的系统 UI**（相册、相机、权限弹窗）。Detox 之类的
 e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用的测试。所以这份清单
-就是本库真正的测试套件 —— 任何改动 `ios/` 或 `android/` 的 PR 都必须跑一遍。
+是本库的真机回归套件。
+
+**适用范围：**
+
+- **维护期全矩阵**：改 `ios/` / `android/` 的回归 PR，应跑下方完整设备矩阵
+  （80+ 项）。这是维护期回归，不是每个跟进 PR 的合并条件。
+- **1.0 跟进 PR 豁免**：PR 1–5 的合并条件是单元测试 + 各 PR 审查重点，**不**
+  要求 Android 12/13/14 + iOS 16/17 各跑全文。
+- **发 `1.0.0`**：只硬性勾选「1.0.0 发版门闩」一节（PR 7）。门闩是本文的子集，
+  不是另起一套「阻塞发版」清单。
 
 自动化覆盖的范围（CI 全跑）：
 - JS 选项归一化 —— `npx jest`
@@ -10,11 +19,69 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
   读同一份 `__fixtures__/compress-plan.json`
 - iOS 编解码正确性 —— `ios/tests/codec_test.m`
 - iOS 请求闸门 —— `ios/tests/request_gate_test.m`
+- Android 闸门 —— `LaunchGateTest`（纯 JVM：占用 / 防抖 / 预览预约 / OnceSettle）
 - 两端编译（最新 RN 与 RN 0.67.5 下限）
 
 **Android 的编解码路径没有自动化覆盖**（不在 CI 跑模拟器），见下方专项。
 
-## 设备矩阵
+## 1.0.0 发版门闩
+
+发 `1.0.0` / `npm publish --tag latest` 之前必须全部勾选。PR 7 **只勾本节**，
+并记下设备型号 / OS。漏勾不得进发布 PR。
+
+**硬前置（本节开跑之前）：**
+
+- **PR 6**（example 验收入口：`openPreview` / `keepOriginal` /
+  `showLoading: false` + `addProgressListener` / GIF）必须先合入。没有这些
+  按钮就只能写临时脚本跑门闩，**不得**在 PR 6 未合时开始本节真机勾选。
+- **GitHub 默认分支必须在 `npm publish --tag latest` 之前切到 `v1`**。
+  `master` 留在 `1ed0bbb`（与 tag `v0.5.3-legacy` 同提交）；1.0 序列**不快进**
+  `master`。
+
+**明确不在门闩内：**
+
+- New Arch 专项手测（example 已开 Fabric / `RCTNewArchEnabled`，只作 interop
+  烟雾测试，不把「新架构下选图 / 拍照 / 预览 / 取消 / 权限拒绝」扩成硬性项）
+- 极宽全景不降采样 / Luban 1663 一像素悬崖（1.0 产品债，post-1.0 单独立项）
+- 下文其余清单项（维护期回归）
+
+### 闸门与结算
+
+- [ ] 两端连点 → 第二次 reject `BUSY`，无悬挂 Promise
+- [ ] 在 `beginRequest` / present 与 UI 出现之间杀进程或旋转宿主 Activity，
+      下一次调用不得永久 `BUSY`
+
+### 高风险路径
+
+- [ ] iOS `showLoading: false` 时 Promise 必须结算；取消能关掉选择器
+- [ ] Android 开启裁剪 / 相机拍摄后压缩能正常结束（队列 key）
+- [ ] GIF 多选能完成
+- [ ] 单选 + crop 不能从网格绕过裁剪
+
+### 像素与压缩
+
+- [ ] EXIF 6 及 2/4/5/7 压缩后方向正确；`compress: false` / `minSize` 跳过时
+      竖拍上报摆正尺寸
+- [ ] 透明 PNG 默认输出仍为 PNG 且透明不丢；不透明 PNG 默认转 JPEG
+- [ ] 选 9 张 12MP 无 OOM；**预览** 9 张 12MP 时 iOS 不 jetsam
+- [ ] 连续压缩后 Profiler 里 `syan-compress` 始终最多 1 条
+- [ ] 默认结果无 `originalUri`；`keepOriginal: true` 才有
+
+### 过滤与构建
+
+- [ ] Limited + iCloud + `maxFileSize`：stat 超时后 fail-open 并结算，不得让
+      下一次 `pickImage` 连续数分钟 `BUSY`
+- [ ] `example` `assembleRelease`（R8 开启）后打开相册，网格缩略图正常
+      （验证 `consumer-rules.pro` 对 PictureSelector / Glide / UCrop 的 keep）
+
+---
+
+## 维护期回归（post-1.0）
+
+以下完整设备矩阵与各节是**维护期回归**，不是 1.0 跟进 PR 的合并条件，也不是
+发 `1.0.0` 的硬性门闩。与门闩重叠的条目在维护期仍应回归。
+
+## 设备矩阵（post-1.0 / 维护）
 
 | 平台 | 版本 | 为什么必须覆盖 |
 |---|---|---|
@@ -25,7 +92,7 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 | iOS | 17 | **Limited（"仅选中的照片"）授权** |
 | iOS | 任意 | 拒绝授权后的表现 |
 
-## 基础功能（每个平台各跑一遍）
+## 基础功能（post-1.0 / 维护；每个平台各跑一遍）
 
 - [ ] `pickImage()` 多选，结果数量正确
 - [ ] `pickImage({ maxCount: 1 })` 单选
@@ -47,7 +114,7 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - [ ] **GIF 不被压缩**：选一张 GIF，结果文件仍是 GIF 且动画完好
       （Android 曾因换掉 Luban 丢过这个行为）
 
-## 压缩
+## 压缩（post-1.0 / 维护）
 
 > **已自动化的部分不必手测**：
 > - 倍率算法与输出尺寸 → 两端各自读同一份 `__fixtures__/compress-plan.json`
@@ -80,7 +147,7 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - [ ] **两端对拍**：同一张图在 iOS 与 Android 的自动模式下输出**像素尺寸相同**，
       文件大小差异在 ±15% 以内（见 docs/compress-parity.md）
 
-## 回归专项
+## 回归专项（post-1.0 / 维护）
 
 每一条都对应 0.5.x 中一个真实存在的缺陷，**这些是最容易复发的地方**。
 
@@ -138,7 +205,7 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - [ ] `pickImage({ selectedAssets: previous.assets })` → 已选项正确高亮
 - [ ] iOS：确认走的是 `assetId`（`uri` 指向缓存产物，反查不回相册）
 
-## 权限与清单
+## 权限与清单（post-1.0 / 维护）
 
 - [ ] 检查合并后的清单 `app/build/outputs/logs/manifest-merger-*-report.txt`：
       注入的权限应为 `READ_MEDIA_IMAGES`、`READ_MEDIA_VIDEO`、
@@ -149,11 +216,12 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - [ ] Android 14 授予"仅选择部分照片"后，相册能正常显示已授权的那部分
 - [ ] iOS 17 Limited 授权下能正常选图，**不会**弹出错误的"无权限"提示
 
-## 构建
+## 构建（post-1.0 / 维护）
+
+> R8 缩略图已并入上方「1.0.0 发版门闩」，此处不再单独作为阻塞发版项。
 
 - [ ] Android RN 0.67.5（AGP 7.x / Gradle 7.x / JDK 11）构建通过
 - [ ] Android 最新 RN（AGP 8.x / Gradle 8.x / JDK 17）构建通过
 - [ ] `pod install` 干净通过，iOS 构建无新增告警
-- [ ] release 构建开启 R8 后，缩略图正常显示（验证 `consumer-rules.pro`）
 - [ ] `npm pack --dry-run` 产物中包含 `lib/ src/ ios/ android/ podspec`，
       且**不含** `example*/`

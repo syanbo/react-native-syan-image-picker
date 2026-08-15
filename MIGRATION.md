@@ -63,9 +63,9 @@ res.assets.forEach(...);
 错误改用有类型的 `error.code`（`PERMISSION_DENIED` / `NO_ACTIVITY` /
 `EXPORT_FAILED` / `UNSUPPORTED` / `BUSY`），不再是中文字符串比较。
 
-其中 `BUSY` 是 1.0 新增的：Android 的 PictureSelector 有 600ms 防重复点击窗口，
-窗口内的第二次启动会被静默丢弃。0.5.x 遇到这种情况 Promise 会永远挂着，
-1.0 明确 reject。
+其中 `BUSY` 是 1.0 新增的：两端都会拒绝并发的原生 UI（相册 / 相机 / 预览）；
+Android 的 PictureSelector 另外还有 600ms 防重复点击窗口，窗口内的第二次
+启动会被静默丢弃。0.5.x 遇到这种情况 Promise 会永远挂着，1.0 明确 reject。
 
 ### 2. 全局选中态已移除
 
