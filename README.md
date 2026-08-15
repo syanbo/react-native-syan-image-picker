@@ -15,7 +15,7 @@ React Native 多图片选择组件，支持裁剪与压缩。
 ## 特点
 
 - **纯 Promise**，无 callback 重载
-- **取消不是错误** —— 取消时正常 resolve，只有权限被拒、导出失败才 reject
+- **取消不是错误** —— 取消时正常 resolve，只有权限被拒、导出失败、`BUSY` 才 reject
 - **库不持有任何状态** —— 选中态由调用方持有并回传
 - **TypeScript 优先**，类型由源码生成，不会与运行时脱节
 - 支持 Android 13 / 14 的媒体权限与"仅选择部分照片"
@@ -94,6 +94,13 @@ const res = await pickImage();
 if (!res.cancelled) await openPreview(res.assets, { index: 2 });
 ```
 
+`clearCache` 清空本库写入的缓存目录（压缩 / 裁剪产物、视频封面）。
+
+> **警告：** 在任意 `pick*` / `capture*` / `openPreview` 的 Promise **尚未
+> settle** 时调用 `clearCache` 是**未定义行为**。它可能删掉正在写出的文件，
+> 让随后 resolve 的 `file://` 变成 404，或触发 `EXPORT_FAILED`。
+> 请等对应 Promise 完成后再清。
+
 ### 返回值
 
 ```ts
@@ -130,11 +137,12 @@ type PickResult<T> =
 | `NO_ACTIVITY` | Android：当前没有可用的 Activity |
 | `EXPORT_FAILED` | 导出、写盘或压缩失败 |
 | `UNSUPPORTED` | 当前平台 / 设备不支持该能力 |
-| `BUSY` | 上一个选择器还没结束，或两次调用间隔过短（<600ms） |
+| `BUSY` | 两端拒绝并发原生 UI；Android 另含 600ms 防抖 |
 
-> `BUSY` 存在的原因：Android 的 PictureSelector 内部有 600ms 防重复点击窗口，
-> 窗口内的第二次启动会被它**静默丢弃**。与其让那个 Promise 永远挂着，不如明确
-> 报错。收到它通常意味着按钮需要防抖，或在等待期间禁用入口。
+> 两端同一时刻只允许一个会展示原生 UI 的请求（相册 / 相机 / 预览）。
+> Android 的 PictureSelector 另外还有 600ms 防重复点击窗口，窗口内的第二次启动
+> 会被它**静默丢弃**，因此库会提前 reject `BUSY`。收到它通常意味着按钮需要防抖，
+> 或在等待期间禁用入口。
 
 ```ts
 try {
@@ -255,7 +263,9 @@ promise 从调用那一刻就挂着，但那之前用户还在相册里挑图，
 | GIF | 两端都**不压缩**，原样返回 —— 重编码只会拿到第一帧 |
 | `allowGif: false` | Android 在查询层过滤，GIF 不出现在列表里；iOS 的 TZ 做不到隐藏（其 `allowPickingGif=NO` 只是"当作普通图片"），改为在结果返回前剔除 |
 | `allowWebp` / `allowBmp` / `allowHeic` | **仅 Android**（查询层过滤）。iOS 无对应能力，但通常不需要 —— 默认会重编码为 JPEG，只有"原图" / `compress: false` / GIF 才透传原始字节 |
-| `style: 'wechat'` | Android 上表现为**带序号的选择态**。PictureSelector v3 已移除内置微信主题，完整复刻需要整套资源，不在 1.0 范围内 |
+| `style: 'wechat'` | Android 上表现为**带序号的选择态**。**iOS 是 no-op**（选项会被解析，但没有任何读取方，不是「部分主题」）。PictureSelector v3 已移除内置微信主题，完整复刻需要整套资源，不在 1.0 范围内 |
+| `showLoading` | **仅 iOS**。Android 由 PictureSelector 自己在压缩阶段转圈 |
+| `transcode` | **仅 iOS**。Android 不重新编码视频 |
 
 不支持的选项在运行时**静默忽略**，不会报错。
 
@@ -323,8 +333,9 @@ npm --prefix example-rn067 install   # RN 0.71 之前的 AAR 随 npm 包下发
 cd example-rn067 && gradle :react-native-syan-image-picker:assembleRelease
 ```
 
-跨进程的相册 / 相机 / 权限 UI 无法自动化测试，发版前请对照
-[docs/QA-CHECKLIST.md](./docs/QA-CHECKLIST.md) 在真机上过一遍。
+跨进程的相册 / 相机 / 权限 UI 无法自动化测试。发 `1.0.0` 请对照
+[docs/QA-CHECKLIST.md](./docs/QA-CHECKLIST.md) 的「1.0.0 发版门闩」；
+完整设备矩阵是维护期回归。
 
 ## 许可
 

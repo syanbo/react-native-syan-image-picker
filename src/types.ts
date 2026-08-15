@@ -25,10 +25,11 @@ export type SyanErrorCode =
   /** 当前平台不支持该能力 */
   | 'UNSUPPORTED'
   /**
-   * 上一个选择器还没结束，或两次调用间隔过短。
+   * 上一个选择器、相机或预览展示请求还没结束；Android 也可能是两次启动间隔过短。
    *
-   * Android 的 PictureSelector 内部有 600ms 的防重复点击窗口，窗口内的第二次
-   * 启动会被它**静默丢弃**。与其让那个 Promise 永远挂着，不如明确告诉调用方。
+   * 两端都会拒绝并发原生 UI。Android 的 PictureSelector 另有 600ms 防重复点击
+   * 窗口，窗口内的第二次启动会被它**静默丢弃**。与其让那个 Promise 永远挂着，
+   * 不如明确告诉调用方。
    * 通常意味着按钮需要防抖，或在等待期间禁用入口。
    */
   | 'BUSY';
@@ -44,7 +45,12 @@ export interface SyanError extends Error {
 
 /** 图片与视频共有的字段。 */
 export interface Asset {
-  /** 本地文件路径，始终以 `file://` 开头 */
+  /**
+   * 本地文件路径，始终以 `file://` 开头。
+   *
+   * `clearCache()` 或系统回收后失效。对应的 `pick*` / `capture*` / `openPreview`
+   * Promise 尚未 settle 时调用 `clearCache` 是未定义行为，见该函数注释。
+   */
   uri: string;
   /** 像素宽 */
   width: number;
@@ -119,6 +125,11 @@ export type PickResult<T> =
 
 export type CropShape = 'rect' | 'circle';
 export type SortOrder = 'asc' | 'desc';
+/**
+ * 界面风格。
+ *
+ * `'wechat'` 在 Android 上是带序号的选择态；**iOS 是 no-op**（不是部分主题）。
+ */
 export type PickerStyle = 'default' | 'wechat';
 
 /**
@@ -261,7 +272,12 @@ export interface PickImageOptions {
   sortOrder?: SortOrder;
   /** 是否在缩略图上显示选中序号，默认 `false` */
   showSelectionIndex?: boolean;
-  /** 界面风格，默认 `'default'` */
+  /**
+   * 界面风格，默认 `'default'`。
+   *
+   * `'wechat'`：**仅 Android** 落地为带序号的选择态；**iOS 是 no-op**
+   * （选项会被解析，但没有任何读取方，不是「部分主题」）。
+   */
   style?: PickerStyle;
   /**
    * 回填上次的选择结果，这些项会以选中态打开。
@@ -375,6 +391,17 @@ export interface SyanProgress {
 export interface SyanSubscription {
   remove(): void;
 }
+
+/* -------------------------------------------------------------------------- */
+/* 缓存                                                                        */
+/* -------------------------------------------------------------------------- */
+
+/*
+ * `clearCache()` 契约：在任意 `pick*` / `capture*` / `openPreview` 对应的
+ * Promise **尚未 settle** 时调用是**未定义行为**。可能删掉正在写出的缓存文件，
+ * 让随后 resolve 的 `file://` 404，或触发 `EXPORT_FAILED`。闸门不覆盖清缓存。
+ * 请等对应 Promise 完成后再清。
+ */
 
 /* -------------------------------------------------------------------------- */
 /* 传给原生层的线格式（内部）                                                    */
