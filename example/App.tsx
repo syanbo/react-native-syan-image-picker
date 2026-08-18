@@ -5,7 +5,7 @@
  *  - 取消是正常结果（`cancelled`），不是异常
  *  - 库不持有选中态，"记住上次选择"靠把 assets 传回去
  *
- * 「验收」一节补齐发版门闩要用的入口：预览、keepOriginal、关闭 loading + 进度、GIF。
+ * 「验收」一节补齐发版验收要用的入口：keepOriginal、关闭 loading + 进度、GIF。
  *
  * @format
  */
@@ -27,7 +27,6 @@ import {
   captureVideo,
   clearCache,
   isSyanError,
-  openPreview,
   pickImage,
   pickVideo,
   type ImageAsset,
@@ -73,25 +72,6 @@ export default function App() {
   );
 
   const imageAssets = assets.filter((a): a is ImageAsset => !isVideo(a));
-
-  /** 预览界面一展示就 resolve，不等用户关闭。 */
-  const previewLast = useCallback(async () => {
-    if (assets.length === 0) {
-      setStatus('预览：没有可预览的结果');
-      return;
-    }
-    try {
-      setStatus('预览…');
-      await openPreview(assets, {index: assets.length > 1 ? 1 : 0});
-      setStatus(`预览：已打开（${assets.length} 项，不等关闭）`);
-    } catch (error) {
-      if (isSyanError(error)) {
-        setStatus(`预览 失败 [${error.code}]：${error.message}`);
-      } else {
-        setStatus(`预览 失败：${String(error)}`);
-      }
-    }
-  }, [assets]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -172,11 +152,6 @@ export default function App() {
         </Section>
 
         <Section title="验收">
-          <Button
-            label={`预览上次结果（${assets.length} 项）`}
-            disabled={assets.length === 0}
-            onPress={previewLast}
-          />
           <Button
             label="选图 + keepOriginal"
             onPress={() =>

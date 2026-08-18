@@ -178,18 +178,6 @@ internal data class CaptureImageRequest(
     }
 }
 
-internal data class PreviewRequest(
-    val uris: List<String>,
-    val index: Int,
-) {
-    companion object {
-        fun from(map: ReadableMap?): PreviewRequest = PreviewRequest(
-            uris = map.stringListOr("uris"),
-            index = map.intOr("index", 0).coerceAtLeast(0),
-        )
-    }
-}
-
 internal data class CaptureVideoRequest(val recordDuration: Int) {
     companion object {
         fun from(map: ReadableMap?): CaptureVideoRequest = CaptureVideoRequest(

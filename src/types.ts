@@ -48,7 +48,7 @@ export interface Asset {
   /**
    * 本地文件路径，始终以 `file://` 开头。
    *
-   * `clearCache()` 或系统回收后失效。对应的 `pick*` / `capture*` / `openPreview`
+   * `clearCache()` 或系统回收后失效。对应的 `pick*` / `capture*`
    * Promise 尚未 settle 时调用 `clearCache` 是未定义行为，见该函数注释。
    */
   uri: string;
@@ -349,12 +349,6 @@ export interface CaptureImageOptions {
   compress?: false | CompressAuto | CompressOptions;
 }
 
-/** {@link openPreview} 的选项。 */
-export interface PreviewOptions {
-  /** 初始展示第几项，默认 0 */
-  index?: number;
-}
-
 export interface CaptureVideoOptions {
   /** 最长录制时长，单位秒，默认 60 */
   recordDuration?: number;
@@ -396,7 +390,7 @@ export interface SyanSubscription {
 /* -------------------------------------------------------------------------- */
 
 /*
- * `clearCache()` 契约：在任意 `pick*` / `capture*` / `openPreview` 对应的
+ * `clearCache()` 契约：在任意 `pick*` / `capture*` 对应的
  * Promise **尚未 settle** 时调用是**未定义行为**。可能删掉正在写出的缓存文件，
  * 让随后 resolve 的 `file://` 404，或触发 `EXPORT_FAILED`。请等对应 Promise
  * 完成后再清。
@@ -480,12 +474,6 @@ export interface NativeVideoRequest {
   selectedUris: string[];
   maxDuration: number;
   minDuration: number;
-}
-
-/** @internal */
-export interface NativePreviewRequest {
-  uris: string[];
-  index: number;
 }
 
 /** @internal */

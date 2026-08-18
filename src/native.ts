@@ -12,7 +12,6 @@ import type {
   NativeCaptureImageRequest,
   NativeCaptureVideoRequest,
   NativeImageRequest,
-  NativePreviewRequest,
   NativeVideoRequest,
   PickResult,
   VideoAsset,
@@ -34,7 +33,6 @@ export interface SyanNativeSpec {
   captureVideo(
     request: NativeCaptureVideoRequest,
   ): Promise<PickResult<VideoAsset>>;
-  openPreview(request: NativePreviewRequest): Promise<void>;
   clearCache(): Promise<void>;
   /** NativeEventEmitter 在 RN 0.67 上要求原生模块提供这两个桩方法，否则告警。 */
   addListener(eventName: string): void;

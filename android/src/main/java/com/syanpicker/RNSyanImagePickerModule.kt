@@ -215,62 +215,6 @@ class RNSyanImagePickerModule(
     }
 
     /* ---------------------------------------------------------------------- */
-    /* 预览                                                                    */
-    /* ---------------------------------------------------------------------- */
-
-    /**
-     * 全屏预览一组本地文件。
-     *
-     * 纯展示，没有结果可返回；预览界面本身是另一个 Activity，关闭与否不影响
-     * 本次调用，因此启动成功就直接 resolve。启动仍须经过 600ms / busy 闸门，
-     * 但不占用坑位。
-     */
-    @ReactMethod
-    fun openPreview(options: ReadableMap?, promise: Promise) {
-        val activity = requireActivity(promise) ?: return
-        val request = PreviewRequest.from(options)
-
-        if (request.uris.isEmpty()) {
-            promise.resolve(null)
-            return
-        }
-
-        val media = request.uris.mapNotNull { uri ->
-            val path = uri.removePrefix("file://")
-            runCatching {
-                LocalMedia.generateLocalMedia(reactApplicationContext, path)
-            }.getOrNull()
-        }
-        if (media.isEmpty()) {
-            promise.reject(
-                SyanErrorCode.EXPORT_FAILED.name,
-                "没有可预览的有效文件",
-            )
-            return
-        }
-
-        if (!reservePreviewLaunch(promise)) return
-
-        try {
-            PictureSelector.create(activity)
-                .openPreview()
-                .setImageEngine(GlideImageEngine)
-                .isHidePreviewDownload(true)
-                .startActivityPreview(
-                    request.index.coerceIn(0, media.size - 1),
-                    false, // 不显示删除按钮：本库不持有选中态，删除无从回传
-                    ArrayList(media),
-                )
-            promise.resolve(null)
-        } catch (t: Throwable) {
-            promise.reject(
-                SyanErrorCode.EXPORT_FAILED.name,
-                t.message ?: "无法打开预览界面",
-            )
-        }
-    }
-
-    /* ---------------------------------------------------------------------- */
     /* 进度事件                                                                */
     /* ---------------------------------------------------------------------- */
 
@@ -349,17 +293,6 @@ class RNSyanImagePickerModule(
             return null
         }
         return PendingRequest(promise) { _ -> launchGate.finish(token) }
-    }
-
-    /**
-     * 预览走同一把闸门的 600ms / busy 检查，但不长期占用。
-     */
-    private fun reservePreviewLaunch(promise: Promise): Boolean {
-        if (!launchGate.reservePreview()) {
-            rejectBusy(promise)
-            return false
-        }
-        return true
     }
 
     private fun rejectBusy(promise: Promise) {

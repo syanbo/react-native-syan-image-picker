@@ -15,8 +15,6 @@ import type {
   CaptureImageOptions,
   CompressAuto,
   CaptureVideoOptions,
-  NativePreviewRequest,
-  PreviewOptions,
   CompressOptions,
   CropOptions,
   NativeCaptureImageRequest,
@@ -260,28 +258,6 @@ export function resolvePickVideo(
       VIDEO_DURATION_DEFAULTS.minDuration,
     ),
   };
-}
-
-/**
- * 预览请求。
- *
- * 只把 uri 传给原生 —— 预览读的是本地文件，不需要相册资源标识。
- */
-export function resolvePreview(
-  assets: readonly { uri: string }[] | undefined,
-  options: PreviewOptions = {},
-): NativePreviewRequest {
-  const uris = (assets ?? [])
-    .map((a) => a.uri)
-    .filter((uri): uri is string => Boolean(uri));
-
-  // index 夹在有效范围内，避免原生越界。
-  const index = Math.min(
-    Math.max(nonNegativeInt(options.index, 0), 0),
-    Math.max(uris.length - 1, 0),
-  );
-
-  return { uris, index };
 }
 
 export function resolveCaptureImage(

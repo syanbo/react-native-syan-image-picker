@@ -10,7 +10,6 @@
 #import "SYPermissions.h"
 #import "SYPickerOptions.h"
 #import "SYPresent.h"
-#import "SYPreview.h"
 #import "SYRequestGate.h"
 
 /// 与 TS 侧 SyanErrorCode 一一对应。
@@ -684,76 +683,6 @@ RCT_EXPORT_METHOD(captureVideo
         return;
     }
     resolve(SYSuccessResult(asset ? @[ asset ] : @[]));
-}
-
-#pragma mark - 预览
-
-RCT_EXPORT_METHOD(openPreview
-                  : (NSDictionary *)options resolver
-                  : (RCTPromiseResolveBlock)resolve rejecter
-                  : (RCTPromiseRejectBlock)reject) {
-    NSArray *rawUris = [options isKindOfClass:[NSDictionary class]] ? options[@"uris"] : nil;
-    NSInteger index = [options[@"index"] isKindOfClass:[NSNumber class]]
-                          ? [options[@"index"] integerValue]
-                          : 0;
-
-    if (![rawUris isKindOfClass:[NSArray class]] || rawUris.count == 0) {
-        resolve([NSNull null]);
-        return;
-    }
-
-    NSObject *token = [self beginModalRequestWithReject:reject];
-    if (!token) {
-        return;
-    }
-    RCTPromiseResolveBlock guardedResolve =
-        [self guardedResolveForToken:token resolve:resolve];
-    RCTPromiseRejectBlock guardedReject =
-        [self guardedRejectForToken:token reject:reject];
-
-    // 解码放后台，present 回主线程。
-    dispatch_async([self workQueue], ^{
-        NSMutableArray<UIImage *> *photos = [NSMutableArray array];
-        for (id item in rawUris) {
-            if (![item isKindOfClass:[NSString class]]) {
-                continue;
-            }
-            NSURL *url = [NSURL URLWithString:item];
-            NSString *path = url.isFileURL ? url.path : item;
-            UIImage *image = [UIImage imageWithContentsOfFile:path];
-            if (image) {
-                [photos addObject:image];
-            }
-        }
-
-        if (photos.count == 0) {
-            guardedReject(kSYCodeExportFailed, @"没有可预览的有效文件", nil);
-            return;
-        }
-
-        NSInteger clamped = MIN(MAX(index, 0), (NSInteger)photos.count - 1);
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            // 不能走 TZ 的 initWithSelectedAssets:selectedPhotos:index:。
-            // 那个入口用 selectedAssets 填 models；我们只有缓存文件 UIImage，
-            // 传空 assets 会在 refreshNaviBarAndBottomBarState 里对 models[index]
-            // 越界崩溃。
-            SYPreviewController *previewVc =
-                [[SYPreviewController alloc] initWithImages:photos startIndex:clamped];
-
-            UIViewController *presenter = RCTPresentedViewController();
-            NSError *error = nil;
-            if (!SYPresenterIsReady(presenter) ||
-                !SYPresentViewController(presenter, previewVc, &error)) {
-                guardedReject(kSYCodeUnsupported,
-                              error.localizedDescription ?: @"找不到可用于展示预览的控制器",
-                              error);
-                return;
-            }
-            // 与 Android 一致：展示成功即 resolve，不等用户关闭。
-            guardedResolve([NSNull null]);
-        });
-    });
 }
 
 #pragma mark - 缓存

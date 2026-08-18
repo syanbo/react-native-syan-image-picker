@@ -75,31 +75,23 @@ await SYImagePicker.pickImage();
 
 ## API
 
-六个方法，全部返回 Promise：
+五个方法，全部返回 Promise：
 
 ```ts
 pickImage(options?):    Promise<PickResult<ImageAsset>>
 pickVideo(options?):    Promise<PickResult<VideoAsset>>
 captureImage(options?): Promise<PickResult<ImageAsset>>
 captureVideo(options?): Promise<PickResult<VideoAsset>>
-openPreview(assets, options?): Promise<void>
 clearCache():           Promise<void>
 ```
 
-`openPreview` 全屏预览一组本地文件，纯展示无返回值。**界面一展示就 resolve，
-不等用户关闭** —— 两端一致。
-
-```ts
-const res = await pickImage();
-if (!res.cancelled) await openPreview(res.assets, { index: 2 });
-```
+本库不提供结果预览。选完之后用宿主自己的图片组件展示 `uri` 即可。
 
 `clearCache` 清空本库写入的缓存目录（压缩 / 裁剪产物、视频封面）。
 
-> **警告：** 在任意 `pick*` / `capture*` / `openPreview` 的 Promise **尚未
-> settle** 时调用 `clearCache` 是**未定义行为**。它可能删掉正在写出的文件，
-> 让随后 resolve 的 `file://` 变成 404，或触发 `EXPORT_FAILED`。
-> 请等对应 Promise 完成后再清。
+> **警告：** 在任意 `pick*` / `capture*` 的 Promise **尚未 settle** 时调用
+> `clearCache` 是**未定义行为**。它可能删掉正在写出的文件，让随后 resolve
+> 的 `file://` 变成 404，或触发 `EXPORT_FAILED`。请等对应 Promise 完成后再清。
 
 ### 返回值
 
@@ -311,7 +303,7 @@ ext {
 
 | 目录 | 作用 |
 |---|---|
-| `example/` | 完整的 RN 示例 App，**直接消费本地源码**。当前入口覆盖选图 / 裁剪 / base64 / 不压缩 / 视频 / 拍照 / 录像 / 回填 / 清缓存；**尚未**覆盖 `openPreview`、`keepOriginal`、`showLoading: false` + 进度、GIF（门闩所需按钮见 PR 6） |
+| `example/` | 完整的 RN 示例 App，**直接消费本地源码**。入口覆盖选图 / 裁剪 / base64 / 不压缩 / 视频 / 拍照 / 录像 / 回填 / keepOriginal / 关闭 loading + 进度 / GIF / 清缓存 |
 | `example-rn067/` | RN 0.67.5 支持下限的构建验证 |
 
 ```sh
@@ -334,7 +326,7 @@ cd example-rn067 && gradle :react-native-syan-image-picker:assembleRelease
 ```
 
 跨进程的相册 / 相机 / 权限 UI 无法自动化测试。发 `1.0.0` 请对照
-[docs/QA-CHECKLIST.md](./docs/QA-CHECKLIST.md) 的「1.0.0 发版门闩」；
+[docs/QA-CHECKLIST.md](./docs/QA-CHECKLIST.md) 的「1.0.0 发版门槛」；
 完整设备矩阵是维护期回归。
 
 ## 许可

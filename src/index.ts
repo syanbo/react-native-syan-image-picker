@@ -1,9 +1,9 @@
 /**
  * react-native-syan-image-picker
  *
- * 六个方法，全部返回 Promise：
+ * 五个方法，全部返回 Promise：
  * `pickImage` · `pickVideo` · `captureImage` · `captureVideo` ·
- * `openPreview` · `clearCache`
+ * `clearCache`
  *
  * 两条贯穿全库的约定：
  *
@@ -18,7 +18,6 @@ import {
   resolveCaptureVideo,
   resolvePickImage,
   resolvePickVideo,
-  resolvePreview,
 } from './defaults';
 import { getEmitter, SY_PROGRESS_EVENT, SyanNative } from './native';
 
@@ -29,7 +28,6 @@ import type {
   PickImageOptions,
   PickResult,
   PickVideoOptions,
-  PreviewOptions,
   SyanError,
   SyanErrorCode,
   SyanProgress,
@@ -50,7 +48,6 @@ export type {
   PickImageOptions,
   PickResult,
   PickVideoOptions,
-  PreviewOptions,
   SortOrder,
   SyanError,
   SyanErrorCode,
@@ -128,31 +125,6 @@ export async function captureVideo(
 }
 
 /**
- * 全屏预览一组已有的资源。
- *
- * 纯展示，没有返回值。传入的既可以是本库选出来的 asset，也可以是任何本地文件
- * （只用到 `uri`）。
- *
- * 注意：**预览界面一旦展示就 resolve，不会等用户关闭** —— 两端一致。
- * 预览是独立的界面，关闭时机与调用方的流程无关。
- *
- * ```ts
- * const res = await pickImage();
- * if (!res.cancelled) await openPreview(res.assets, { index: 2 });
- * ```
- */
-export async function openPreview(
-  assets: readonly { uri: string }[],
-  options?: PreviewOptions,
-): Promise<void> {
-  const request = resolvePreview(assets, options);
-  if (request.uris.length === 0) {
-    return; // 没东西可看，不必惊动原生
-  }
-  await SyanNative.openPreview(request);
-}
-
-/**
  * 订阅处理进度。
  *
  * **订阅本身就是开关** —— 没有监听者时原生侧完全不发事件，零开销，因此不需要
@@ -195,7 +167,7 @@ export function addProgressListener(
  * 这些文件写在应用的缓存目录下，系统也可能自行回收；在批量处理大图后主动调用
  * 可以及时释放空间。
  *
- * **未定义行为：** 在任意 `pick*` / `capture*` / `openPreview` 的 Promise
+ * **未定义行为：** 在任意 `pick*` / `capture*` 的 Promise
  * 尚未 settle 时调用。并发清缓存可能删掉正在写出的文件，让随后 resolve 的
  * `file://` 404，或触发 `EXPORT_FAILED`。请等对应 Promise 完成后再清。
  */
@@ -208,7 +180,6 @@ const SYImagePicker = {
   pickVideo,
   captureImage,
   captureVideo,
-  openPreview,
   clearCache,
   addProgressListener,
   isSyanError,

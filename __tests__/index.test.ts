@@ -23,7 +23,6 @@ jest.mock('react-native', () => ({
       pickVideo: jest.fn(),
       captureImage: jest.fn(),
       captureVideo: jest.fn(),
-      openPreview: jest.fn(),
       clearCache: jest.fn(),
       addListener: jest.fn(),
       removeListeners: jest.fn(),
@@ -38,7 +37,6 @@ const mockNative = NativeModules.RNSyanImagePicker as Record<
   | 'pickVideo'
   | 'captureImage'
   | 'captureVideo'
-  | 'openPreview'
   | 'clearCache',
   jest.Mock
 >;
@@ -49,7 +47,6 @@ import SYImagePicker, {
   captureVideo,
   clearCache,
   isSyanError,
-  openPreview,
   pickImage,
   pickVideo,
 } from '../src/index';
@@ -80,7 +77,6 @@ describe('导出形态', () => {
       'captureVideo',
       'clearCache',
       'isSyanError',
-      'openPreview',
       'pickImage',
       'pickVideo',
     ]);
@@ -178,22 +174,6 @@ describe('传给原生的请求', () => {
     expect(req.crop.enabled).toBe(false);
     expect(req.compress.mode).toBe('auto');
     expect(req.selectedUris).toEqual([]);
-  });
-
-  it('openPreview：没有可预览的项时不惊动原生', async () => {
-    await openPreview([]);
-    expect(mockNative.openPreview).not.toHaveBeenCalled();
-  });
-
-  it('openPreview：index 被夹在有效范围内', async () => {
-    mockNative.openPreview.mockResolvedValue(undefined);
-    await openPreview([{ uri: 'file://a.jpg' }, { uri: 'file://b.jpg' }], {
-      index: 99,
-    });
-    expect(mockNative.openPreview).toHaveBeenCalledWith({
-      uris: ['file://a.jpg', 'file://b.jpg'],
-      index: 1,
-    });
   });
 
   it('进度事件被收口成合法形状，脏值不会漏进业务代码', () => {

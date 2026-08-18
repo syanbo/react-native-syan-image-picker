@@ -1,7 +1,6 @@
 package com.syanpicker
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
@@ -58,22 +57,15 @@ class LaunchGateTest {
     }
 
     @Test
-    fun `预览预约不占坑且占用中预约失败`() {
+    fun `结算后防抖窗口内 begin 仍失败`() {
         val clock = Clock(10_000L)
         val gate = gate(clock)
-        assertTrue(gate.reservePreview())
-        clock.now = 10_600L
-        assertNotNull(gate.begin())
-        assertFalse(gate.reservePreview())
-    }
-
-    @Test
-    fun `假时钟下防抖窗口内 begin 与 reservePreview 都失败`() {
-        val clock = Clock(10_000L)
-        val gate = gate(clock)
-        assertTrue(gate.reservePreview())
+        val token = gate.begin()
+        assertNotNull(token)
+        assertTrue(gate.finish(token!!))
         clock.now = 10_599L
         assertNull(gate.begin())
-        assertFalse(gate.reservePreview())
+        clock.now = 10_600L
+        assertNotNull(gate.begin())
     }
 }
