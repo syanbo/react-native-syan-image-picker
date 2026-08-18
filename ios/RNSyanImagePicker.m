@@ -10,6 +10,7 @@
 #import "SYPermissions.h"
 #import "SYPickerOptions.h"
 #import "SYPresent.h"
+#import "SYPreview.h"
 #import "SYRequestGate.h"
 
 /// 与 TS 侧 SyanErrorCode 一一对应。
@@ -733,17 +734,12 @@ RCT_EXPORT_METHOD(openPreview
         NSInteger clamped = MIN(MAX(index, 0), (NSInteger)photos.count - 1);
 
         dispatch_async(dispatch_get_main_queue(), ^{
-            /*
-             必须走这个初始化方法：TZPhotoPreviewController 内部有十几处把
-             self.navigationController 强转成 TZImagePickerController，单独拿出来用会崩。
-             这个初始化方法正是官方的预览入口，会把它包成导航栈的根控制器。
-             selectedAssets 传空数组即可 —— 预览只用到 photos。
-             */
-            TZImagePickerController *previewVc =
-                [[TZImagePickerController alloc] initWithSelectedAssets:[NSMutableArray array]
-                                                        selectedPhotos:photos
-                                                                 index:clamped];
-            previewVc.modalPresentationStyle = UIModalPresentationFullScreen;
+            // 不能走 TZ 的 initWithSelectedAssets:selectedPhotos:index:。
+            // 那个入口用 selectedAssets 填 models；我们只有缓存文件 UIImage，
+            // 传空 assets 会在 refreshNaviBarAndBottomBarState 里对 models[index]
+            // 越界崩溃。
+            SYPreviewController *previewVc =
+                [[SYPreviewController alloc] initWithImages:photos startIndex:clamped];
 
             UIViewController *presenter = RCTPresentedViewController();
             NSError *error = nil;

@@ -30,4 +30,17 @@
     -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!--
+      Android 11+ 包可见性：不声明的话 resolveActivity(IMAGE_CAPTURE) 常为 null，
+      PictureSelector 会静默跳过 startActivityForResult，相机永远不出现。
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
+        </intent>
+    </queries>
+
 </manifest>

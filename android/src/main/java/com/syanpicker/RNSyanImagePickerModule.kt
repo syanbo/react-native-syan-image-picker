@@ -11,6 +11,8 @@ import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.modules.core.DeviceEventManagerModule
+import com.luck.picture.lib.PictureOnlyCameraFragment
+import com.luck.picture.lib.basic.PictureCommonFragment
 import com.luck.picture.lib.basic.PictureSelector
 import com.luck.picture.lib.config.SelectMimeType
 import com.luck.picture.lib.config.SelectModeConfig
@@ -21,7 +23,6 @@ import com.syanpicker.engine.ImageCompressEngine
 import com.syanpicker.engine.SandboxEngine
 import com.syanpicker.engine.UCropEngine
 import android.os.SystemClock
-import com.luck.picture.lib.basic.PictureCommonFragment
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -170,6 +171,7 @@ class RNSyanImagePickerModule(
         val request = CaptureImageRequest.from(options)
         val pending = beginRequest(promise) ?: return
         try {
+            detachHostCameraFragment(activity)
             PictureSelector.create(activity)
                 .openCamera(SelectMimeType.ofImage())
                 .setSandboxFileEngine(SandboxEngine)
@@ -184,9 +186,11 @@ class RNSyanImagePickerModule(
                         setCropEngine(UCropEngine(request.crop))
                     }
                 }
-                .forResult(imageListener(pending, request.includeBase64, request.keepOriginal))
+                // 必须走独立透明 Activity。forResult() 会把相机 Fragment 嵌进 RN
+                // 宿主；相机 Intent 起不来时界面毫无变化，回调也不来，闸门永久 BUSY。
+                .forResultActivity(imageListener(pending, request.includeBase64, request.keepOriginal))
         } catch (t: Throwable) {
-            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
+            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开相机")
         }
     }
 
@@ -196,6 +200,7 @@ class RNSyanImagePickerModule(
         val request = CaptureVideoRequest.from(options)
         val pending = beginRequest(promise) ?: return
         try {
+            detachHostCameraFragment(activity)
             PictureSelector.create(activity)
                 .openCamera(SelectMimeType.ofVideo())
                 .setSandboxFileEngine(SandboxEngine)
@@ -203,9 +208,9 @@ class RNSyanImagePickerModule(
                 .setPermissionDeniedListener { fragment, _, _, _ ->
                     rejectPermission(pending, fragment)
                 }
-                .forResult(videoListener(pending))
+                .forResultActivity(videoListener(pending))
         } catch (t: Throwable) {
-            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
+            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开相机")
         }
     }
 
@@ -362,6 +367,15 @@ class RNSyanImagePickerModule(
             SyanErrorCode.BUSY.name,
             "选择器正在使用中，或两次调用间隔过短（<${LAUNCH_DEBOUNCE_MS}ms）",
         )
+    }
+
+    /**
+     * 清掉上次误用 forResult() 嵌进宿主的相机 Fragment，避免叠一层空壳。
+     */
+    private fun detachHostCameraFragment(activity: FragmentActivity) {
+        val manager = activity.supportFragmentManager
+        val leftover = manager.findFragmentByTag(PictureOnlyCameraFragment.TAG) ?: return
+        manager.beginTransaction().remove(leftover).commitAllowingStateLoss()
     }
 
     /**

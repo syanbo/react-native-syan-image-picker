@@ -21,4 +21,14 @@
     <!-- PictureSelector 拉起相机前会检查 CAMERA 权限，必须声明，说明见 AndroidManifest.xml。 -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Android 11+ 包可见性，说明见 AndroidManifest.xml。 -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+        <intent>
+            <action android:name="android.media.action.VIDEO_CAPTURE" />
+        </intent>
+    </queries>
+
 </manifest>
