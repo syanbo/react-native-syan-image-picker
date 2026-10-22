@@ -231,6 +231,7 @@ export function resolvePickImage(
     selectedUris: selectedUris(options.selectedAssets),
     crop: resolveCrop(options.crop),
     compress: resolveCompress(options.compress),
+    systemPickerMinSdk: nonNegativeInt(options.systemPickerMinSdk, 0),
   };
 }
 

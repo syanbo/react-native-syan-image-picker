@@ -177,6 +177,7 @@ await pickImage({
     shape: 'rect',
   },
   compress: 'auto',                  // 不传即为 'auto'，详见下节
+  systemPickerMinSdk: 33,            // 仅 Android，见下方「系统 Photo Picker」
 });
 ```
 

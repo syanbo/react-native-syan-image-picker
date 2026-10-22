@@ -193,6 +193,23 @@ describe('resolvePickImage', () => {
     expect(resolvePickImage({ maxCount: 0 }).maxCount).toBe(1);
     expect(resolvePickImage({ maxCount: -5 }).maxCount).toBe(1);
   });
+
+  it('systemPickerMinSdk 不传时为 0，交给原生按 meta-data → 33 取值', () => {
+    expect(resolvePickImage().systemPickerMinSdk).toBe(0);
+  });
+
+  it('systemPickerMinSdk 取整并透传', () => {
+    expect(resolvePickImage({ systemPickerMinSdk: 36 }).systemPickerMinSdk).toBe(36);
+    expect(resolvePickImage({ systemPickerMinSdk: 34.9 }).systemPickerMinSdk).toBe(34);
+  });
+
+  it('systemPickerMinSdk 非法值退回 0（视为未指定）', () => {
+    expect(resolvePickImage({ systemPickerMinSdk: -1 }).systemPickerMinSdk).toBe(0);
+    expect(resolvePickImage({ systemPickerMinSdk: NaN }).systemPickerMinSdk).toBe(0);
+    expect(
+      resolvePickImage({ systemPickerMinSdk: Infinity }).systemPickerMinSdk,
+    ).toBe(0);
+  });
 });
 
 describe('resolvePickVideo', () => {

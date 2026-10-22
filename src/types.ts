@@ -301,6 +301,22 @@ export interface PickImageOptions {
    * 只有当你想**自己渲染进度 UI** 时才需要关掉它。
    */
   showLoading?: boolean;
+  /**
+   * 从哪个 Android 版本（API level）起改用系统 Photo Picker，默认 33。**仅 Android**
+   *
+   * **只在宿主未配置清单 meta-data 时生效。** 门槛按以下顺序取值，取到即止：
+   * 1. 宿主 `AndroidManifest.xml` 的 `<application>` 下
+   *    `<meta-data android:name="photo_picker_min_sdk" android:value="N" />`
+   * 2. 本选项
+   * 3. 缺省 33
+   *
+   * 系统版本达到门槛、系统 Picker 可用、且 `PICK_IMAGES` 可解析时走系统 Picker，
+   * 选图流程不申请存储权限；否则走 PictureSelector 应用内相册。
+   * 系统 Picker 下不支持的选项与选完后剔除的规则见 README「平台差异」。
+   *
+   * iOS 忽略本选项。
+   */
+  systemPickerMinSdk?: number;
 }
 
 export interface PickVideoOptions {
@@ -459,6 +475,8 @@ export interface NativeImageRequest {
   selectedUris: string[];
   crop: NativeCropConfig;
   compress: NativeCompressConfig;
+  /** 0 表示调用方未指定，原生按清单 meta-data → 缺省 33 取值 */
+  systemPickerMinSdk: number;
 }
 
 /** @internal */
