@@ -18,6 +18,7 @@ import com.luck.picture.lib.config.SelectMimeType
 import com.luck.picture.lib.config.SelectModeConfig
 import com.luck.picture.lib.entity.LocalMedia
 import com.luck.picture.lib.interfaces.OnResultCallbackListener
+import com.syanpicker.engine.DeclaredPermissionInterceptor
 import com.syanpicker.engine.GlideImageEngine
 import com.syanpicker.engine.ImageCompressEngine
 import com.syanpicker.engine.SandboxEngine
@@ -95,6 +96,7 @@ class RNSyanImagePickerModule(
             }
             PictureSelector.create(activity)
                 .openGallery(SelectMimeType.ofImage())
+                .setPermissionsInterceptListener(DeclaredPermissionInterceptor)
                 .setImageEngine(GlideImageEngine)
                 .setSandboxFileEngine(SandboxEngine)
                 .setSelectorUIStyle(
@@ -146,6 +148,7 @@ class RNSyanImagePickerModule(
         try {
             PictureSelector.create(activity)
                 .openGallery(SelectMimeType.ofVideo())
+                .setPermissionsInterceptListener(DeclaredPermissionInterceptor)
                 .setImageEngine(GlideImageEngine)
                 .setSandboxFileEngine(SandboxEngine)
                 .setMaxSelectNum(request.maxCount)
@@ -184,6 +187,7 @@ class RNSyanImagePickerModule(
             detachHostCameraFragment(activity)
             PictureSelector.create(activity)
                 .openCamera(SelectMimeType.ofImage())
+                .setPermissionsInterceptListener(DeclaredPermissionInterceptor)
                 .setSandboxFileEngine(SandboxEngine)
                 .setPermissionDeniedListener { fragment, _, _, _ ->
                     rejectPermission(pending, fragment)
@@ -213,6 +217,7 @@ class RNSyanImagePickerModule(
             detachHostCameraFragment(activity)
             PictureSelector.create(activity)
                 .openCamera(SelectMimeType.ofVideo())
+                .setPermissionsInterceptListener(DeclaredPermissionInterceptor)
                 .setSandboxFileEngine(SandboxEngine)
                 .setRecordVideoMaxSecond(request.recordDuration)
                 .setPermissionDeniedListener { fragment, _, _, _ ->

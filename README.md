@@ -58,6 +58,10 @@ targetSdk >= 33 的宿主在 Android 13+ 上不会用到它。若宿主自己声
 `maxSdkVersion` 的同名权限，以合并清单为准，必要时用
 `tools:remove="android:maxSdkVersion"` 去掉。
 
+本库不声明 `WRITE_EXTERNAL_STORAGE`。PictureSelector 在 Android 12 及以下会成对申请
+READ / WRITE 并要求全部授权；本库只申请宿主清单里声明过的权限，宿主没声明 WRITE 时只申请
+READ，不会把用户的"允许"误判为拒绝。宿主声明了 WRITE 时行为不变。
+
 `CAMERA` 是必需的：PictureSelector 在拉起相机前会执行 `checkSelfPermission(CAMERA)`，
 而 Android 对未在清单中声明的权限一律直接返回 DENIED 且不弹授权框 —— 不声明的话
 `captureImage` / `captureVideo` 以及相册内的相机入口全部打不开。
