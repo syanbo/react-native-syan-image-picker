@@ -26,6 +26,19 @@ export default tseslint.config(
     },
   },
   {
+    // src 会被宿主的 Metro/Babel 直接转译，支持下限 RN 0.67 的 Babel 不认识 TS 4.9 的 satisfies。
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSSatisfiesExpression',
+          message: 'RN 0.67 的 Babel 不支持 satisfies，用 defaults.ts 里的 conforms。',
+        },
+      ],
+    },
+  },
+  {
     // babel / metro / jest / react-native.config 这些都是 CommonJS 配置文件，
     // require() 是它们唯一的写法，不该套用 TS 的 ESM 规则。
     files: ['**/*.js', '**/*.cjs'],

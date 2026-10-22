@@ -3,7 +3,7 @@
  *
  * 两条硬规则：
  *
- * 1. 所有默认值用 `satisfies` 反向约束到 `types.ts`，保证类型与默认值不会漂移。
+ * 1. 所有默认值用 `conforms` 反向约束到 `types.ts`，保证类型与默认值不会漂移。
  * 2. **依赖 `Dimensions` 的默认值必须在每次调用时求值。** 老实现在模块加载时
  *    就把裁剪尺寸算死了，于是平板、折叠屏、以及任何一次旋转之后，默认值永远
  *    是错的。
@@ -31,7 +31,16 @@ import type {
 /* 默认值                                                                      */
 /* -------------------------------------------------------------------------- */
 
-export const IMAGE_DEFAULTS = {
+/**
+ * 作用同 `value satisfies T`：约束到 T，同时保留字面量类型。
+ * 不直接写 satisfies：它是 TS 4.9 语法，RN 0.67 宿主的 Babel 转不了，打 bundle 会失败。
+ */
+const conforms =
+  <T>() =>
+  <U extends T>(value: U): U =>
+    value;
+
+export const IMAGE_DEFAULTS = conforms<PickImageOptions>()({
   maxCount: 6,
   minCount: 0,
   maxFileSize: 0,
@@ -48,31 +57,31 @@ export const IMAGE_DEFAULTS = {
   sortOrder: 'asc',
   showSelectionIndex: false,
   style: 'default',
-} satisfies PickImageOptions;
+});
 
-export const VIDEO_DEFAULTS = {
+export const VIDEO_DEFAULTS = conforms<PickVideoOptions>()({
   maxCount: 1,
   minCount: 0,
   maxFileSize: 0,
   minFileSize: 0,
   showCameraButton: true,
   sortOrder: 'asc',
-} satisfies PickVideoOptions;
+});
 
-export const CROP_DEFAULTS = {
+export const CROP_DEFAULTS = conforms<CropOptions>()({
   shape: 'rect',
   showFrame: true,
   showGrid: false,
   freeStyle: false,
   rotate: true,
   scale: true,
-} satisfies CropOptions;
+});
 
-export const COMPRESS_DEFAULTS = {
+export const COMPRESS_DEFAULTS = conforms<CompressOptions>()({
   quality: 90,
   minSize: 100,
   keepAlpha: false,
-} satisfies CompressOptions;
+});
 
 /**
  * 自动模式固定使用的质量。
