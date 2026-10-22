@@ -20,6 +20,8 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - iOS 编解码正确性 —— `ios/tests/codec_test.m`
 - iOS 请求闸门 —— `ios/tests/request_gate_test.m`
 - Android 闸门 —— `LaunchGateTest`（纯 JVM：占用 / 防抖 / 预览预约 / OnceSettle）
+- Android 系统 Photo Picker 规则 —— `SystemPickerPolicyTest`（纯 JVM：门槛取值顺序 /
+  可用性 / 单选不传 `PICK_IMAGES_MAX` / 选完后剔除 / 复制失败 `EXPORT_FAILED`）
 - 两端编译（最新 RN 与 RN 0.67.5 下限）
 
 **Android 的编解码路径没有自动化覆盖**（不在 CI 跑模拟器），见下方专项。
@@ -217,6 +219,24 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - [ ] `pickImage({ selectedAssets: previous.assets })` → 已选项正确高亮
 - [ ] iOS：确认走的是 `assetId`（`uri` 指向缓存产物，反查不回相册）
 
+## 系统 Photo Picker（Android）
+
+门槛按「宿主 meta-data → `systemPickerMinSdk` → 33」取值。example 未配置 meta-data。
+
+- [ ] Android 13+ 默认参数：`pickImage()` 打开系统 Photo Picker，**全程没有存储权限弹窗**
+- [ ] `pickImage({ systemPickerMinSdk: 99 })`：同一台 13+ 机器改走应用内相册
+- [ ] Android 12 及以下（R 扩展版本 < 2）：走应用内相册，按旧流程申请 `READ_EXTERNAL_STORAGE`
+- [ ] 宿主清单配 `<meta-data android:name="photo_picker_min_sdk" android:value="99" />`
+      后，`systemPickerMinSdk: 33` 不再生效（meta-data 优先）
+- [ ] 单选（`maxCount: 1`）：系统 Picker 是单选界面，点一张直接返回
+- [ ] 多选 `maxCount: 3`：系统 Picker 最多只能选 3 张
+- [ ] 单选 + `crop`：选完进入裁剪页；裁剪完成返回裁剪后的图；在裁剪页返回 → `{ cancelled: true }`
+- [ ] 在系统 Picker 里返回 → `{ cancelled: true }`，下一次调用不得 `BUSY`
+- [ ] `allowGif: false` 选 GIF → 结果里没有它（可能是空数组）；`allowGif: true` 返回原样 GIF
+- [ ] `maxFileSize: 500` 选一张超过 500KB 的图 → 结果里没有它
+- [ ] 默认自动压缩生效：4032×3024 输出 2016×1512；`keepOriginal: true` 有 `originalUri`
+- [ ] 「不保留活动」打开时选图，回到 App 后 Promise 正常结算
+
 ## 权限与清单（post-1.0 / 维护）
 
 - [ ] 检查合并后的清单 `app/build/outputs/logs/manifest-merger-*-report.txt`：
@@ -225,6 +245,7 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
       **不带** `android:maxSdkVersion`
 - [ ] targetSdk < 33 的宿主在 Android 13–15 上打开相册：申请 `READ_EXTERNAL_STORAGE`
       并能正常授权（清单若带 `maxSdkVersion="32"`，这里会被直接拒绝）
+- [ ] 合并清单的 `<queries>` 含 `android.provider.action.PICK_IMAGES`（`image/*`）
 - [ ] 确认 `CAMERA` **已**注入（PictureSelector 拉起相机前会检查它，缺了拍摄功能全废）
 - [ ] 宿主用 `tools:node="remove"` 移除 `CAMERA` 后，纯相册流程仍可用
 - [ ] Android 14 授予"仅选择部分照片"后，相册能正常显示已授权的那部分

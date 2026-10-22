@@ -59,6 +59,14 @@ internal class ImageCompressEngine(
     }
 
     /**
+     * 同步压缩一个本地文件，供系统 Picker 分支在自己的后台线程里调用。
+     *
+     * @return 压缩产物路径；跳过压缩（GIF、小于 minSize 等）或失败时返回 null，调用方沿用原文件
+     */
+    fun compressFile(context: Context, path: String): String? =
+        runCatching { compress(context, Uri.fromFile(File(path))) }.getOrNull()
+
+    /**
      * 回传给 PictureSelector 的 key，**必须与它入队时用的字符串完全一致**。
      *
      * `PictureCommonFragment.onCompress` 是这样入队的：

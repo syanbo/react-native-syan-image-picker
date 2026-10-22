@@ -70,6 +70,10 @@ class RNSyanImagePickerModule(
         Thread(runnable, "syan-image-picker").apply { isDaemon = true }
     }
 
+    private val systemPicker = SystemImagePicker(reactContext, worker) { completed, total ->
+        emitProgress("processing", completed, total)
+    }
+
     override fun getName(): String = NAME
 
     /* ---------------------------------------------------------------------- */
@@ -83,6 +87,12 @@ class RNSyanImagePickerModule(
         // 每次请求一个独立句柄，回调闭包独占持有，天然不会串到别的请求上。
         val pending = beginRequest(promise) ?: return
         try {
+            // 走系统 Picker 时不申请存储权限；打不开就退回下面的应用内相册。
+            if (systemPicker.shouldUse(activity, request) &&
+                systemPicker.launch(activity, request, pending)
+            ) {
+                return
+            }
             PictureSelector.create(activity)
                 .openGallery(SelectMimeType.ofImage())
                 .setImageEngine(GlideImageEngine)

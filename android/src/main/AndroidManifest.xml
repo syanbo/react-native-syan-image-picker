@@ -43,6 +43,11 @@
         <intent>
             <action android:name="android.media.action.VIDEO_CAPTURE" />
         </intent>
+        <!-- 系统 Photo Picker：判断是否可用时要 resolveActivity(PICK_IMAGES)。 -->
+        <intent>
+            <action android:name="android.provider.action.PICK_IMAGES" />
+            <data android:mimeType="image/*" />
+        </intent>
     </queries>
 
 </manifest>

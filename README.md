@@ -49,6 +49,8 @@ cd ios && pod install
 - `READ_EXTERNAL_STORAGE`（不带 `maxSdkVersion`）
 - `CAMERA`
 
+走系统 Photo Picker 时不申请上述任何权限，见「[系统 Photo Picker](#系统-photo-pickerandroid)」。
+
 `READ_EXTERNAL_STORAGE` 刻意不带 `maxSdkVersion="32"`：PictureSelector 在 Android 13+
 上按宿主 targetSdk 选择权限，targetSdk < 33 的宿主仍申请 `READ_EXTERNAL_STORAGE`。
 若清单限制到 32，这类宿主在 Android 13+ 上申请会被系统直接拒绝，相册打不开。
@@ -177,7 +179,7 @@ await pickImage({
     shape: 'rect',
   },
   compress: 'auto',                  // 不传即为 'auto'，详见下节
-  systemPickerMinSdk: 33,            // 仅 Android，见下方「系统 Photo Picker」
+  systemPickerMinSdk: 33,            // 仅 Android，见「系统 Photo Picker」
 });
 ```
 
@@ -266,8 +268,52 @@ promise 从调用那一刻就挂着，但那之前用户还在相册里挑图，
 | `style: 'wechat'` | Android 上表现为**带序号的选择态**。**iOS 是 no-op**（不是部分主题）。PictureSelector v3 已移除内置微信主题，完整复刻需要整套资源，不在 1.0 范围内 |
 | `showLoading` | **仅 iOS**。Android 由 PictureSelector 自己在压缩阶段转圈 |
 | `transcode` | **仅 iOS**。Android 不重新编码视频 |
+| `systemPickerMinSdk` | **仅 Android**。Android 上 `pickImage` 可能走系统 Photo Picker，选项差异见下一节 |
 
 不支持的选项在运行时**静默忽略**，不会报错。
+
+### 系统 Photo Picker（Android）
+
+`pickImage` 在 Android 上同时满足下面三个条件时，改用系统 Photo Picker
+（`android.provider.action.PICK_IMAGES`），选图流程**不申请存储权限**：
+
+1. 系统版本 >= 门槛
+2. 系统 Picker 可用：Android 13+，或 Android 11 / 12 的 R 扩展版本 >= 2
+3. `PICK_IMAGES` 能解析到 Activity（`<queries>` 已由本库清单声明）
+
+任一条件不满足时走 PictureSelector 应用内相册，行为与之前相同。`pickVideo`、
+`captureImage`、`captureVideo` 不受影响。
+
+门槛按以下顺序取值，取到即止：
+
+1. 宿主清单 `<application>` 下的 meta-data：
+
+   ```xml
+   <meta-data android:name="photo_picker_min_sdk" android:value="36" />
+   ```
+
+2. JS 选项 `systemPickerMinSdk`
+3. 缺省 33
+
+宿主原生代码也要用系统 Picker 时，建议配 meta-data：原生和 RN 读同一个值，
+热更新的 JS 改不了它。
+
+系统 Picker 下各选项的表现：
+
+| 选项 | 表现 |
+|---|---|
+| `maxCount` | 大于 1 时作为系统 Picker 的选择上限（系统上限 100）；等于 1 时单选 |
+| `crop` | 仅单选时生效：选完进入 UCrop。在裁剪页返回按取消处理 |
+| `allowGif` / `allowWebp` / `allowBmp` / `allowHeic` | 系统 Picker 里过滤不了，**选完后剔除** |
+| `maxFileSize` / `minFileSize` | 同上，选完后剔除 |
+| `compress` / `includeBase64` / `keepOriginal` | 与应用内相册相同 |
+| `minCount` / `showCameraButton` / `sortOrder` / `style` / `showSelectionIndex` / `allowOriginal` / `selectedAssets` | 不生效 |
+
+- 和 iOS 一样，剔除后 `assets` 可能为空数组，`cancelled` 仍为 `false`。
+- 系统 Picker 返回的 URI 只临时授权，本库拿到后立刻复制进缓存目录；复制失败
+  reject `EXPORT_FAILED`。
+- 结果的 `assetId` 是系统 Picker 的 URI，回填给应用内相册时选不中。
+- 系统 Picker 没有原生 loading，压缩期间想显示进度请用 `addProgressListener`。
 
 ## 兼容性
 

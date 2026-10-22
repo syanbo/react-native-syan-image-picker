@@ -33,7 +33,16 @@ internal class UCropEngine(private val config: CropConfig) : CropFileEngine {
         requestCode: Int,
     ) {
         val context = fragment.requireContext()
+        build(context, srcUri, destinationUri, dataSource).start(context, fragment, requestCode)
+    }
 
+    /** 系统 Picker 分支没有 PictureSelector 的 Fragment，取同一套配置后由调用方从 Activity 启动。 */
+    fun build(
+        context: Context,
+        srcUri: Uri,
+        destinationUri: Uri,
+        dataSource: ArrayList<String>,
+    ): UCrop {
         val options = UCrop.Options().apply {
             setCircleDimmedLayer(config.circle)
             setShowCropFrame(config.showFrame)
@@ -59,7 +68,7 @@ internal class UCropEngine(private val config: CropConfig) : CropFileEngine {
         // 也就是两三百）。把它当作输出上限会把成图压到几百像素，白白丢掉分辨率。
         // iOS 侧的 TZ cropRect 同样只影响 UI，两端语义在此保持一致。
         uCrop.setImageEngine(GlideUCropImageEngine)
-        uCrop.start(context, fragment, requestCode)
+        return uCrop
     }
 }
 

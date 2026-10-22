@@ -110,6 +110,8 @@ internal data class ImageRequest(
     val selectedUris: List<String>,
     val crop: CropConfig,
     val compress: CompressConfig,
+    /** 0 表示调用方未指定 */
+    val systemPickerMinSdk: Int,
 ) {
     companion object {
         fun from(map: ReadableMap?): ImageRequest = ImageRequest(
@@ -131,6 +133,7 @@ internal data class ImageRequest(
             selectedUris = map.stringListOr("selectedUris"),
             crop = CropConfig.from(map.mapOrNull("crop")),
             compress = CompressConfig.from(map.mapOrNull("compress")),
+            systemPickerMinSdk = map.intOr("systemPickerMinSdk", 0).coerceAtLeast(0),
         )
     }
 }
