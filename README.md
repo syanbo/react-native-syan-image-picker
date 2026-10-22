@@ -46,8 +46,15 @@ cd ios && pod install
 所需权限**由本库的 manifest 自动合入**，无需手动声明：
 
 - `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` / `READ_MEDIA_VISUAL_USER_SELECTED`
-- `READ_EXTERNAL_STORAGE`（带 `maxSdkVersion="32"`）
+- `READ_EXTERNAL_STORAGE`（不带 `maxSdkVersion`）
 - `CAMERA`
+
+`READ_EXTERNAL_STORAGE` 刻意不带 `maxSdkVersion="32"`：PictureSelector 在 Android 13+
+上按宿主 targetSdk 选择权限，targetSdk < 33 的宿主仍申请 `READ_EXTERNAL_STORAGE`。
+若清单限制到 32，这类宿主在 Android 13+ 上申请会被系统直接拒绝，相册打不开。
+targetSdk >= 33 的宿主在 Android 13+ 上不会用到它。若宿主自己声明了带
+`maxSdkVersion` 的同名权限，以合并清单为准，必要时用
+`tools:remove="android:maxSdkVersion"` 去掉。
 
 `CAMERA` 是必需的：PictureSelector 在拉起相机前会执行 `checkSelfPermission(CAMERA)`，
 而 Android 对未在清单中声明的权限一律直接返回 DENIED 且不弹授权框 —— 不声明的话

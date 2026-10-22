@@ -7,10 +7,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.syanpicker">
 
-    <!-- Android 12 及以下 -->
-    <uses-permission
-        android:name="android.permission.READ_EXTERNAL_STORAGE"
-        android:maxSdkVersion="32" />
+    <!--
+      不加 maxSdkVersion="32"。PictureSelector 在 Android 13+ 上按宿主 targetSdk 选权限：
+      targetSdk < 33 时仍申请 READ_EXTERNAL_STORAGE。库里写了 maxSdkVersion，合并后
+      这类宿主在 13+ 上没有声明该权限，申请直接被拒，相册打不开。
+    -->
+    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />
 
     <!-- Android 13+ 的分类媒体权限 -->
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />

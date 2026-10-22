@@ -222,7 +222,9 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - [ ] 检查合并后的清单 `app/build/outputs/logs/manifest-merger-*-report.txt`：
       注入的权限应为 `READ_MEDIA_IMAGES`、`READ_MEDIA_VIDEO`、
       `READ_MEDIA_VISUAL_USER_SELECTED`，且 `READ_EXTERNAL_STORAGE`
-      带 `android:maxSdkVersion="32"`
+      **不带** `android:maxSdkVersion`
+- [ ] targetSdk < 33 的宿主在 Android 13–15 上打开相册：申请 `READ_EXTERNAL_STORAGE`
+      并能正常授权（清单若带 `maxSdkVersion="32"`，这里会被直接拒绝）
 - [ ] 确认 `CAMERA` **已**注入（PictureSelector 拉起相机前会检查它，缺了拍摄功能全废）
 - [ ] 宿主用 `tools:node="remove"` 移除 `CAMERA` 后，纯相册流程仍可用
 - [ ] Android 14 授予"仅选择部分照片"后，相册能正常显示已授权的那部分
