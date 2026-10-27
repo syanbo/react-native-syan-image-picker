@@ -24,6 +24,9 @@ static const void *kSYPickerDismissedKey = &kSYPickerDismissedKey;
 /// 与 TS 侧 SY_PROGRESS_EVENT 必须一致。
 static NSString *const kSYProgressEvent = @"RNSyanImagePicker:progress";
 
+/// 宿主通过 setPickerClass: 指定的选择器类，nil 时用 TZImagePickerController。
+static Class sSYPickerClass = nil;
+
 @interface RNSyanImagePicker ()
 /// 有没有人在监听进度。没人听就一条事件也不发。
 @property (nonatomic, assign) BOOL hasProgressListeners;
@@ -34,6 +37,15 @@ static NSString *const kSYProgressEvent = @"RNSyanImagePicker:progress";
 @implementation RNSyanImagePicker
 
 RCT_EXPORT_MODULE()
+
++ (void)setPickerClass:(Class)pickerClass {
+    sSYPickerClass = [pickerClass isSubclassOfClass:[TZImagePickerController class]] ? pickerClass : nil;
+}
+
++ (TZImagePickerController *)pickerWithMaxImagesCount:(NSInteger)maxCount {
+    Class cls = sSYPickerClass ?: [TZImagePickerController class];
+    return [[cls alloc] initWithMaxImagesCount:maxCount delegate:nil];
+}
 
 - (instancetype)init {
     self = [super init];
@@ -230,8 +242,7 @@ RCT_EXPORT_METHOD(pickImage
 - (void)presentImagePickerWithOptions:(SYImageOptions *)opts
                               resolve:(RCTPromiseResolveBlock)resolve
                                reject:(RCTPromiseRejectBlock)reject {
-    TZImagePickerController *picker =
-        [[TZImagePickerController alloc] initWithMaxImagesCount:opts.maxCount delegate:nil];
+    TZImagePickerController *picker = [RNSyanImagePicker pickerWithMaxImagesCount:opts.maxCount];
 
     picker.minImagesCount = opts.minCount;
     picker.allowPickingImage = YES;
@@ -450,8 +461,7 @@ RCT_EXPORT_METHOD(pickVideo
 - (void)presentVideoPickerWithOptions:(SYVideoOptions *)opts
                               resolve:(RCTPromiseResolveBlock)resolve
                                reject:(RCTPromiseRejectBlock)reject {
-    TZImagePickerController *picker =
-        [[TZImagePickerController alloc] initWithMaxImagesCount:opts.maxCount delegate:nil];
+    TZImagePickerController *picker = [RNSyanImagePicker pickerWithMaxImagesCount:opts.maxCount];
 
     picker.minImagesCount = opts.minCount;
     picker.allowPickingImage = NO;

@@ -319,6 +319,21 @@ promise 从调用那一刻就挂着，但那之前用户还在相册里挑图，
 - 结果的 `assetId` 是系统 Picker 的 URI，回填给应用内相册时选不中。
 - 系统 Picker 没有原生 loading，压缩期间想显示进度请用 `addProgressListener`。
 
+### 自定义选择器外观（iOS）
+
+宿主可以传入 `TZImagePickerController` 的子类，相册和视频选择都用它创建：
+
+```objc
+#import <RNSyanImagePicker/RNSyanImagePicker.h>
+
+// 启动时设置一次，例如 application:didFinishLaunchingWithOptions:
+[RNSyanImagePicker setPickerClass:[MyImagePickerController class]];
+```
+
+- 子类在指定初始化方法 `initWithMaxImagesCount:columnNumber:delegate:pushPhotoPickerVc:` 里设置导航栏、颜色等外观。本库用 `initWithMaxImagesCount:delegate:` 创建，TZ 3.8 会直接走到指定初始化方法，只重写其他 init 不会生效。本库随后设置的选项（张数、裁剪、GIF 等）仍以 JS 传入的为准。
+- 传 `nil` 或不是 `TZImagePickerController` 子类时恢复默认。
+- 拍照走系统相机，不受影响。
+
 ## 兼容性
 
 | 项 | 要求 |
