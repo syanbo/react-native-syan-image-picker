@@ -279,6 +279,8 @@ RCT_EXPORT_METHOD(pickImage
         picker.needCircleCrop = opts.crop.circle;
         picker.circleCropRadius = MIN(opts.crop.width, opts.crop.height) / 2;
         picker.cropRect = [self cropRectForWidth:opts.crop.width height:opts.crop.height];
+        // TZ 默认按屏宽放图，比例不同的图在裁剪框里会留空白、裁出白边；Android 的 uCrop 默认铺满。
+        picker.scaleAspectFillCrop = YES;
     }
 
     SYCompressOptions *compress = opts.compress;
