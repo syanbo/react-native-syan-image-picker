@@ -13,6 +13,7 @@
     "android",
     "ios",
     "RNSyanImagePicker.podspec",
+    "react-native.config.js",
     "!android/build",
     "!android/.gradle",
     "!ios/tests",
