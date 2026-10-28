@@ -17,6 +17,7 @@ import com.luck.picture.lib.basic.PictureSelector
 import com.luck.picture.lib.config.SelectMimeType
 import com.luck.picture.lib.config.SelectModeConfig
 import com.luck.picture.lib.entity.LocalMedia
+import com.luck.picture.lib.interfaces.OnPermissionsInterceptListener
 import com.luck.picture.lib.interfaces.OnResultCallbackListener
 import com.syanpicker.engine.DeclaredPermissionInterceptor
 import com.syanpicker.engine.GlideImageEngine
@@ -48,6 +49,22 @@ class RNSyanImagePickerModule(
 
         /** 与 TS 侧 SY_PROGRESS_EVENT 必须一致。 */
         private const val PROGRESS_EVENT = "RNSyanImagePicker:progress"
+
+        @Volatile
+        private var hostPermissionInterceptor: OnPermissionsInterceptListener? = null
+
+        /**
+         * 宿主接管相册、相机的权限申请，例如先显示用途说明、拒绝后引导去设置。
+         *
+         * 用户拒绝时本库仍 reject `PERMISSION_DENIED`。传 null 恢复默认。
+         */
+        @JvmStatic
+        fun setPermissionsInterceptListener(listener: OnPermissionsInterceptListener?) {
+            hostPermissionInterceptor = listener
+        }
+
+        private fun permissionInterceptor(): OnPermissionsInterceptListener =
+            hostPermissionInterceptor ?: DeclaredPermissionInterceptor
     }
 
     /** 进度监听者计数。为 0 时一条事件也不发，不订阅的调用方零开销。 */
@@ -96,7 +113,7 @@ class RNSyanImagePickerModule(
             }
             PictureSelector.create(activity)
                 .openGallery(SelectMimeType.ofImage())
-                .setPermissionsInterceptListener(DeclaredPermissionInterceptor)
+                .setPermissionsInterceptListener(permissionInterceptor())
                 .setImageEngine(GlideImageEngine)
                 .setSandboxFileEngine(SandboxEngine)
                 .setSelectorUIStyle(
@@ -148,7 +165,7 @@ class RNSyanImagePickerModule(
         try {
             PictureSelector.create(activity)
                 .openGallery(SelectMimeType.ofVideo())
-                .setPermissionsInterceptListener(DeclaredPermissionInterceptor)
+                .setPermissionsInterceptListener(permissionInterceptor())
                 .setImageEngine(GlideImageEngine)
                 .setSandboxFileEngine(SandboxEngine)
                 .setMaxSelectNum(request.maxCount)
@@ -187,7 +204,7 @@ class RNSyanImagePickerModule(
             detachHostCameraFragment(activity)
             PictureSelector.create(activity)
                 .openCamera(SelectMimeType.ofImage())
-                .setPermissionsInterceptListener(DeclaredPermissionInterceptor)
+                .setPermissionsInterceptListener(permissionInterceptor())
                 .setSandboxFileEngine(SandboxEngine)
                 .setPermissionDeniedListener { fragment, _, _, _ ->
                     rejectPermission(pending, fragment)
@@ -217,7 +234,7 @@ class RNSyanImagePickerModule(
             detachHostCameraFragment(activity)
             PictureSelector.create(activity)
                 .openCamera(SelectMimeType.ofVideo())
-                .setPermissionsInterceptListener(DeclaredPermissionInterceptor)
+                .setPermissionsInterceptListener(permissionInterceptor())
                 .setSandboxFileEngine(SandboxEngine)
                 .setRecordVideoMaxSecond(request.recordDuration)
                 .setPermissionDeniedListener { fragment, _, _, _ ->

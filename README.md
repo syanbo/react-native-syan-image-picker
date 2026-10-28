@@ -334,6 +334,19 @@ promise 从调用那一刻就挂着，但那之前用户还在相册里挑图，
 - 传 `nil` 或不是 `TZImagePickerController` 子类时恢复默认。
 - 拍照走系统相机，不受影响。
 
+### 自定义权限申请（Android）
+
+宿主可以接管相册、相机的权限申请，例如先显示用途说明、拒绝后引导去设置：
+
+```kotlin
+// 启动时设置一次，例如 Application.onCreate
+RNSyanImagePickerModule.setPermissionsInterceptListener(MyPermissionInterceptor())
+```
+
+- 参数是 PictureSelector v3 的 `OnPermissionsInterceptListener`。默认实现只申请宿主清单里声明过的权限，接管后由宿主自己处理这一点。
+- 用户拒绝时本库仍 reject `PERMISSION_DENIED`；宿主已经提示过时，JS 侧可以把它当作取消。
+- 走系统 Photo Picker 时不申请权限，不会调用它。传 `null` 恢复默认。
+
 ## 兼容性
 
 | 项 | 要求 |
