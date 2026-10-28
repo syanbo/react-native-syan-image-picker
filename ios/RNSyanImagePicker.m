@@ -27,6 +27,26 @@ static NSString *const kSYProgressEvent = @"RNSyanImagePicker:progress";
 /// 宿主通过 setPickerClass: 指定的选择器类，nil 时用 TZImagePickerController。
 static Class sSYPickerClass = nil;
 
+/// 过滤对象挂在 picker 上的 key：TZ 对 pickerDelegate 是弱引用，由 picker 持有它。
+static const void *kSYAssetFilterKey = &kSYAssetFilterKey;
+
+/**
+ 不允许 GIF 时让 GIF 不出现在列表里，与 Android 在查询层过滤的行为一致。
+ TZ 的 allowPickingGif = NO 只把 GIF 当普通图片显示，隐藏要靠 isAssetCanBeDisplayed:。
+ */
+@interface SYAssetFilter : NSObject <TZImagePickerControllerDelegate>
+@end
+
+@implementation SYAssetFilter
+
+- (BOOL)isAssetCanBeDisplayed:(PHAsset *)asset {
+    // 只看文件名后缀，和 TZ 自己判断 GIF 的方式一样；逐张查 PHAssetResource 在大相册里太慢。
+    NSString *filename = [asset valueForKey:@"filename"];
+    return ![[filename.pathExtension lowercaseString] isEqualToString:@"gif"];
+}
+
+@end
+
 @interface RNSyanImagePicker ()
 /// 有没有人在监听进度。没人听就一条事件也不发。
 @property (nonatomic, assign) BOOL hasProgressListeners;
@@ -258,6 +278,11 @@ RCT_EXPORT_METHOD(pickImage
      打开它之后 GIF 走的是与普通图片相同的多选通道。
      */
     picker.allowPickingMultipleVideo = opts.allowGif;
+    if (!opts.allowGif) {
+        SYAssetFilter *filter = [SYAssetFilter new];
+        objc_setAssociatedObject(picker, kSYAssetFilterKey, filter, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        picker.pickerDelegate = filter;
+    }
     picker.allowPickingOriginalPhoto = opts.allowOriginal;
     picker.allowTakePicture = opts.showCameraButton;
     picker.sortAscendingByModificationDate = opts.sortAscending;
@@ -397,13 +422,10 @@ RCT_EXPORT_METHOD(pickImage
             }
 
             /*
-             allowGif: NO 时剔除 GIF。
+             allowGif: NO 时剔除 GIF，作为 SYAssetFilter 的兜底。
 
-             这是两端语义对齐所必需的：Android 在查询层过滤，GIF 根本不出现；
-             而 TZ 的 allowPickingGif=NO **并不隐藏 GIF**，只是"把它当作普通图片"
-             （见其头文件注释），用户照样能选中。不在这里剔除的话，一个明确
-             声明了不要 GIF 的调用方还是会拿到 GIF 文件 —— 尤其在我们已经让
-             GIF 走原始字节透传之后，返回的就是货真价实的 .gif。
+             列表按文件名后缀隐藏 GIF，文件名不带 .gif 后缀的 GIF 仍会显示；
+             这里按资源的 UTI 再判断一次，保证调用方拿不到 GIF 文件。
              */
             if (!allowGif && [self isGifAsset:asset]) {
                 continue;

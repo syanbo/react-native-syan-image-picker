@@ -115,8 +115,7 @@ e2e 方案驱动不了它们，只会得到一套持续 flake、最终被禁用�
 - [ ] `crop.shape: 'circle'` 圆形裁剪
 - [ ] `pickImage({ includeBase64: true })`，base64 能被解码回原图
 - [ ] `pickImage({ allowGif: true })` 选中 GIF
-- [ ] `pickImage({ allowGif: false })`：Android 列表里**看不到** GIF；
-      iOS 能选中但**不出现在结果里**（两端表现不同，属已知差异）
+- [ ] `pickImage({ allowGif: false })`：两端列表里都**看不到** GIF
 - [ ] Android `allowHeic: false`：华为/iPhone 导入的 HEIC 不出现在列表里
 - [ ] `pickVideo()`，`duration` / `mime` / `coverUri` 均正确
 - [ ] `captureImage()` 拍照

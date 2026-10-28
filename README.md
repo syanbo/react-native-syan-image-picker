@@ -122,7 +122,7 @@ type PickResult<T> =
 
 > `base64` 是**裸编码，不含 `data:image/jpeg;base64,` 前缀** —— 前缀请按需自行拼接。
 
-> `cancelled: false` 也可能配空数组：iOS 上 `maxFileSize` / `allowGif` 是在结果
+> `cancelled: false` 也可能配空数组：iOS 上 `maxFileSize` 是在结果
 > 返回前剔除的，选中项可能被全部剔除。**不要假设 `!cancelled` 就一定有元素。**
 
 选择"原图"、`compress: false`、以及 GIF 这三种情况会**原样落盘相册中的原始字节**，
@@ -267,7 +267,7 @@ promise 从调用那一刻就挂着，但那之前用户还在相册里挑图，
 | `video.maxDuration/minDuration` | Android 在选择界面内过滤；iOS 的 TZ 不支持按时长筛选，改为在结果返回前剔除（用户能选中，但不会出现在 `assets` 里） |
 | `maxFileSize/minFileSize` | 同上：Android 在界面内过滤；iOS 选完后剔除。iOS 没有廉价的公开 API 能读 PHAsset 文件大小（`PHAssetResource` 不暴露 `fileSize`，只有私有 KVC 能拿），因此改为对**已选中的少数资源**用 `requestContentEditingInput` 取原始文件 URL 后 stat |
 | GIF | 两端都**不压缩**，原样返回 —— 重编码只会拿到第一帧 |
-| `allowGif: false` | Android 在查询层过滤，GIF 不出现在列表里；iOS 的 TZ 做不到隐藏（其 `allowPickingGif=NO` 只是"当作普通图片"），改为在结果返回前剔除 |
+| `allowGif: false` | 两端 GIF 都不出现在列表里（iOS 按文件名后缀隐藏，漏网的在结果返回前剔除）；相册列表的张数在 iOS 上仍包含 GIF |
 | `allowWebp` / `allowBmp` / `allowHeic` | **仅 Android**（查询层过滤）。iOS 无对应能力，但通常不需要 —— 默认会重编码为 JPEG，只有"原图" / `compress: false` / GIF 才透传原始字节 |
 | `style: 'wechat'` | Android 上表现为**带序号的选择态**。**iOS 是 no-op**（不是部分主题）。PictureSelector v3 已移除内置微信主题，完整复刻需要整套资源，不在 1.0 范围内 |
 | `showLoading` | **仅 iOS**。Android 由 PictureSelector 自己在压缩阶段转圈 |

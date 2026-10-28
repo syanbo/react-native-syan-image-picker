@@ -104,8 +104,8 @@ export interface VideoAsset extends Asset {
  *
  * 用户取消时 `cancelled` 为 `true` 且 `assets` 为空数组 —— 取消**不会** reject。
  *
- * 注意 `cancelled: false` **也可能配空数组**：iOS 上 `maxFileSize` / `allowGif`
- * 这类限制是在结果返回前剔除的，若选中项全部被剔除，就是"用户确实选了、但一个
+ * 注意 `cancelled: false` **也可能配空数组**：`maxFileSize` 等限制
+ * 在 iOS 和 Android 系统 Picker 上是在结果返回前剔除的，若选中项全部被剔除，就是"用户确实选了、但一个
  * 都不符合条件"。因此**不要假设 `!cancelled` 就一定有元素**，
  * `res.assets[0]` 之前请先判空。
  *
@@ -240,10 +240,9 @@ export interface PickImageOptions {
   /**
    * 是否允许选择 GIF，默认 `false`。
    *
-   * 平台差异：Android 在查询层过滤，GIF **根本不出现在列表里**；
-   * iOS 的 TZImagePickerController 做不到隐藏（它的 `allowPickingGif` 为 NO 时
-   * 只是"把 GIF 当作普通图片"），因此改为**在结果返回前剔除** —— 用户能选中，
-   * 但不会出现在 `assets` 里。与 `maxFileSize` 是同一种处理方式。
+   * 为 `false` 时两端的 GIF 都**不出现在列表里**。iOS 按文件名后缀隐藏，
+   * 文件名不带 .gif 后缀的 GIF 仍会显示，选中后在结果返回前剔除，不会出现在 `assets` 里。
+   * Android 走系统 Photo Picker 时界面里过滤不了，也是选完后剔除。
    */
   allowGif?: boolean;
   /** 是否允许选择 WebP，默认 `true`。**仅 Android** */
