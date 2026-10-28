@@ -276,9 +276,10 @@ RCT_EXPORT_METHOD(pickImage
          旧实现在单选分支正是这么设的。
          */
         picker.showSelectBtn = NO;
+        CGRect cropRect = [self cropRectForWidth:opts.crop.width height:opts.crop.height];
         picker.needCircleCrop = opts.crop.circle;
-        picker.circleCropRadius = MIN(opts.crop.width, opts.crop.height) / 2;
-        picker.cropRect = [self cropRectForWidth:opts.crop.width height:opts.crop.height];
+        picker.circleCropRadius = MIN(cropRect.size.width, cropRect.size.height) / 2;
+        picker.cropRect = cropRect;
         // TZ 默认按屏宽放图，比例不同的图在裁剪框里会留空白、裁出白边；Android 的 uCrop 默认铺满。
         picker.scaleAspectFillCrop = YES;
     }
@@ -772,11 +773,16 @@ RCT_EXPORT_METHOD(clearCache
     return [[resource.originalFilename.pathExtension lowercaseString] isEqualToString:@"gif"];
 }
 
+/**
+ width / height 只取宽高比，与 Android 的 uCrop（withAspectRatio）一致：
+ 裁剪框按屏宽铺开，高度不超过屏高的 60%，居中放置。
+ */
 - (CGRect)cropRectForWidth:(NSInteger)width height:(NSInteger)height {
     CGSize screen = [UIScreen mainScreen].bounds.size;
-    CGFloat x = (screen.width - width) / 2.0;
-    CGFloat y = (screen.height - height) / 2.0;
-    return CGRectMake(x, y, width, height);
+    CGFloat scale = MIN(screen.width / width, screen.height * 0.6 / height);
+    CGFloat w = floor(width * scale);
+    CGFloat h = floor(height * scale);
+    return CGRectMake((screen.width - w) / 2.0, (screen.height - h) / 2.0, w, h);
 }
 
 /// 把上次返回的 uri 还原成 PHAsset，用于回填选中态。

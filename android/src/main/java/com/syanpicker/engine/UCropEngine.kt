@@ -64,9 +64,9 @@ internal class UCropEngine(private val config: CropConfig) : CropFileEngine {
         val uCrop = UCrop.of(srcUri, destinationUri, dataSource)
         uCrop.withOptions(options)
         // 刻意**不**调用 withMaxResultSize：那个方法限制的是输出图片的**像素尺寸**，
-        // 而 crop.width/height 表达的是裁剪框的宽高比与 UI 尺寸（默认约为屏宽的 60%，
-        // 也就是两三百）。把它当作输出上限会把成图压到几百像素，白白丢掉分辨率。
-        // iOS 侧的 TZ cropRect 同样只影响 UI，两端语义在此保持一致。
+        // 而 crop.width/height 只表达裁剪框的宽高比（调用方可能只传 1:1、16:9）。
+        // 把它当作输出上限会把成图压到几个像素，白白丢掉分辨率。
+        // iOS 侧同样只取比例来放置 TZ 的 cropRect，两端语义在此保持一致。
         uCrop.setImageEngine(GlideUCropImageEngine)
         return uCrop
     }

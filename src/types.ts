@@ -139,14 +139,14 @@ export type PickerStyle = 'default' | 'wechat';
  */
 export interface CropOptions {
   /**
-   * 裁剪框宽度，默认为屏幕宽度的 60%（每次调用时计算）。
+   * 裁剪框宽高比的宽，如 `{ width: 16, height: 9 }`。默认与 `height` 相等（1:1）。
    *
-   * 注意：`width` / `height` 决定的是**裁剪框的宽高比与 UI 尺寸**，
-   * **不会**限制输出图片的分辨率 —— 成图仍按原图分辨率裁出。
+   * 注意：`width` / `height` 只决定**裁剪框的宽高比**。两端都按屏宽放置裁剪框，
+   * 也**不会**限制输出图片的分辨率 —— 成图仍按原图分辨率裁出。
    * 需要缩放到指定像素请自行处理。
    */
   width?: number;
-  /** 裁剪框高度，默认为屏幕宽度的 60%（每次调用时计算）。语义同 {@link width} */
+  /** 裁剪框宽高比的高。语义同 {@link width} */
   height?: number;
   /** 裁剪框形状，默认 `'rect'`。`'circle'` 时半径取 `min(width, height) / 2` */
   shape?: CropShape;

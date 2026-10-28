@@ -179,7 +179,7 @@ await pickImage({
   selectedAssets: previous.assets,   // 回填选中态
 
   crop: {                            // 不传 = 不裁剪
-    width: 300, height: 300,
+    width: 1, height: 1,             // 宽高比
     shape: 'rect',
   },
   compress: 'auto',                  // 不传即为 'auto'，详见下节
@@ -263,7 +263,7 @@ promise 从调用那一刻就挂着，但那之前用户还在相册里挑图，
 | `crop.freeStyle` / `rotate` / `scale` | **仅 Android**（UCrop 的能力） |
 | `crop` 于 `captureImage` | iOS 使用系统自带编辑界面，`width` / `height` 不生效 |
 | `crop` 于多选 | 仅 `maxCount: 1` 时生效，多选时忽略 |
-| `crop.width/height` | 两端均只决定**裁剪框的宽高比与 UI 尺寸**，不限制输出分辨率 |
+| `crop.width/height` | 两端均只取**宽高比**，裁剪框按屏宽放置，不限制输出分辨率 |
 | `video.maxDuration/minDuration` | Android 在选择界面内过滤；iOS 的 TZ 不支持按时长筛选，改为在结果返回前剔除（用户能选中，但不会出现在 `assets` 里） |
 | `maxFileSize/minFileSize` | 同上：Android 在界面内过滤；iOS 选完后剔除。iOS 没有廉价的公开 API 能读 PHAsset 文件大小（`PHAssetResource` 不暴露 `fileSize`，只有私有 KVC 能拿），因此改为对**已选中的少数资源**用 `requestContentEditingInput` 取原始文件 URL 后 stat |
 | GIF | 两端都**不压缩**，原样返回 —— 重编码只会拿到第一帧 |
