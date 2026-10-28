@@ -1,6 +1,6 @@
 {
   "name": "react-native-syan-image-picker",
-  "version": "1.0.0-beta.3",
+  "version": "1.0.0-beta.4",
   "description": "React Native 多图片选择组件，支持裁剪与压缩",
   "main": "lib/commonjs/index.js",
   "module": "lib/module/index.js",
