@@ -109,12 +109,12 @@ class RNSyanImagePickerModule(
         val request = ImageRequest.from(options)
         // 每次请求一个独立句柄，回调闭包独占持有，天然不会串到别的请求上。
         val pending = beginRequest(promise) ?: return
-        try {
+        launchOnUiThread(activity, pending, "无法打开选择器") {
             // 走系统 Picker 时不申请存储权限；打不开就退回下面的应用内相册。
             if (systemPicker.shouldUse(activity, request) &&
                 systemPicker.launch(activity, request, pending)
             ) {
-                return
+                return@launchOnUiThread
             }
             withGalleryPermission(activity, SelectMimeType.ofImage(), pending) {
                 PictureSelector.create(activity)
@@ -159,8 +159,6 @@ class RNSyanImagePickerModule(
                     }
                     .forResult(imageListener(pending, request.includeBase64, request.keepOriginal))
             }
-        } catch (t: Throwable) {
-            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
         }
     }
 
@@ -169,7 +167,7 @@ class RNSyanImagePickerModule(
         val activity = requireActivity(promise) ?: return
         val request = VideoRequest.from(options)
         val pending = beginRequest(promise) ?: return
-        try {
+        launchOnUiThread(activity, pending, "无法打开选择器") {
             withGalleryPermission(activity, SelectMimeType.ofVideo(), pending) {
                 PictureSelector.create(activity)
                     .openGallery(SelectMimeType.ofVideo())
@@ -195,8 +193,6 @@ class RNSyanImagePickerModule(
                     }
                     .forResult(videoListener(pending))
             }
-        } catch (t: Throwable) {
-            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
         }
     }
 
@@ -209,7 +205,7 @@ class RNSyanImagePickerModule(
         val activity = requireActivity(promise) ?: return
         val request = CaptureImageRequest.from(options)
         val pending = beginRequest(promise) ?: return
-        try {
+        launchOnUiThread(activity, pending, "无法打开相机") {
             detachHostCameraFragment(activity)
             PictureSelector.create(activity)
                 .openCamera(SelectMimeType.ofImage())
@@ -229,8 +225,6 @@ class RNSyanImagePickerModule(
                 // 必须走独立透明 Activity。forResult() 会把相机 Fragment 嵌进 RN
                 // 宿主；相机 Intent 起不来时界面毫无变化，回调也不来，闸门永久 BUSY。
                 .forResultActivity(imageListener(pending, request.includeBase64, request.keepOriginal))
-        } catch (t: Throwable) {
-            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开相机")
         }
     }
 
@@ -239,7 +233,7 @@ class RNSyanImagePickerModule(
         val activity = requireActivity(promise) ?: return
         val request = CaptureVideoRequest.from(options)
         val pending = beginRequest(promise) ?: return
-        try {
+        launchOnUiThread(activity, pending, "无法打开相机") {
             detachHostCameraFragment(activity)
             PictureSelector.create(activity)
                 .openCamera(SelectMimeType.ofVideo())
@@ -250,8 +244,6 @@ class RNSyanImagePickerModule(
                     rejectPermission(pending, fragment)
                 }
                 .forResultActivity(videoListener(pending))
-        } catch (t: Throwable) {
-            pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开相机")
         }
     }
 
@@ -371,8 +363,34 @@ class RNSyanImagePickerModule(
     }
 
     /**
+     * 在主线程打开选择器。
+     *
+     * startActivity 会遍历宿主页面的视图树（cancelPendingInputEvents）。在 native modules
+     * 线程调用时，主线程可能正在改同一棵树（例如收起"相册 / 拍照"弹窗），偶发
+     * "View.dispatchCancelPendingInputEvents() on a null object reference"。
+     */
+    private fun launchOnUiThread(
+        activity: FragmentActivity,
+        pending: PendingRequest,
+        failMessage: String,
+        launch: () -> Unit,
+    ) {
+        UiThreadUtil.runOnUiThread {
+            if (activity.isFinishing || activity.isDestroyed) {
+                pending.cancel()
+                return@runOnUiThread
+            }
+            try {
+                launch()
+            } catch (t: Throwable) {
+                pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: failMessage)
+            }
+        }
+    }
+
+    /**
      * 有宿主拦截器且还没有读权限时，先申请权限，拿到后再打开应用内相册。
-     * 见 [PermissionPreflight]。
+     * 见 [PermissionPreflight]。必须在主线程调用。
      */
     private fun withGalleryPermission(
         activity: FragmentActivity,
@@ -385,25 +403,19 @@ class RNSyanImagePickerModule(
             launch()
             return
         }
-        UiThreadUtil.runOnUiThread {
+        PermissionPreflight.request(
+            activity,
+            interceptor,
+            PermissionConfig.getReadPermissionArray(activity, mimeType),
+        ) { granted ->
             try {
-                PermissionPreflight.request(
-                    activity,
-                    interceptor,
-                    PermissionConfig.getReadPermissionArray(activity, mimeType),
-                ) { granted ->
-                    try {
-                        when {
-                            !granted -> pending.reject(
-                                SyanErrorCode.PERMISSION_DENIED,
-                                PERMISSION_DENIED_MESSAGE,
-                            )
-                            activity.isFinishing || activity.isDestroyed -> pending.cancel()
-                            else -> launch()
-                        }
-                    } catch (t: Throwable) {
-                        pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
-                    }
+                when {
+                    !granted -> pending.reject(
+                        SyanErrorCode.PERMISSION_DENIED,
+                        PERMISSION_DENIED_MESSAGE,
+                    )
+                    activity.isFinishing || activity.isDestroyed -> pending.cancel()
+                    else -> launch()
                 }
             } catch (t: Throwable) {
                 pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
