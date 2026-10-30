@@ -344,6 +344,7 @@ RNSyanImagePickerModule.setPermissionsInterceptListener(MyPermissionInterceptor(
 ```
 
 - 参数是 PictureSelector v3 的 `OnPermissionsInterceptListener`。默认实现只申请宿主清单里声明过的权限，接管后由宿主自己处理这一点。
+- 打开应用内相册之前，如果还没有读权限，本库先在当前页面上调用它申请，拿到权限后再打开相册，权限被拒绝时不会闪出空相册页。这一步传入的是一个不显示界面的普通 `Fragment`，不是 `PictureCommonFragment`；实现里只用 `fragment.requireActivity()` 等通用能力。
 - 用户拒绝时本库仍 reject `PERMISSION_DENIED`；宿主已经提示过时，JS 侧可以把它当作取消。
 - 走系统 Photo Picker 时不申请权限，不会调用它。传 `null` 恢复默认。
 

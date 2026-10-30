@@ -9,6 +9,7 @@ import com.facebook.react.bridge.ReactApplicationContext
 import com.facebook.react.bridge.ReactContextBaseJavaModule
 import com.facebook.react.bridge.ReactMethod
 import com.facebook.react.bridge.ReadableMap
+import com.facebook.react.bridge.UiThreadUtil
 import com.facebook.react.module.annotations.ReactModule
 import com.facebook.react.modules.core.DeviceEventManagerModule
 import com.luck.picture.lib.PictureOnlyCameraFragment
@@ -19,6 +20,8 @@ import com.luck.picture.lib.config.SelectModeConfig
 import com.luck.picture.lib.entity.LocalMedia
 import com.luck.picture.lib.interfaces.OnPermissionsInterceptListener
 import com.luck.picture.lib.interfaces.OnResultCallbackListener
+import com.luck.picture.lib.permissions.PermissionChecker
+import com.luck.picture.lib.permissions.PermissionConfig
 import com.syanpicker.engine.DeclaredPermissionInterceptor
 import com.syanpicker.engine.GlideImageEngine
 import com.syanpicker.engine.ImageCompressEngine
@@ -46,6 +49,8 @@ class RNSyanImagePickerModule(
          * 所以这里在启动之前先自己挡一道，把失败变成明确的 BUSY。
          */
         private const val LAUNCH_DEBOUNCE_MS = 600L
+
+        private const val PERMISSION_DENIED_MESSAGE = "用户拒绝了所需的媒体或相机权限"
 
         /** 与 TS 侧 SY_PROGRESS_EVENT 必须一致。 */
         private const val PROGRESS_EVENT = "RNSyanImagePicker:progress"
@@ -111,47 +116,49 @@ class RNSyanImagePickerModule(
             ) {
                 return
             }
-            PictureSelector.create(activity)
-                .openGallery(SelectMimeType.ofImage())
-                .setPermissionsInterceptListener(permissionInterceptor())
-                .setImageEngine(GlideImageEngine)
-                .setSandboxFileEngine(SandboxEngine)
-                .setSelectorUIStyle(
-                    SelectorStyle.build(request.wechatStyle, request.showSelectionIndex),
-                )
-                .setMaxSelectNum(request.maxCount)
-                .setMinSelectNum(request.minCount)
-                .setSelectionMode(
-                    if (request.maxCount > 1) SelectModeConfig.MULTIPLE
-                    else SelectModeConfig.SINGLE,
-                )
-                .setImageSpanCount(GRID_SPAN_COUNT)
-                .setQuerySortOrder(sortOrder(request.sortAscending))
-                .setFilterMaxFileSize(request.maxFileSize.toLong())
-                .setSelectMinFileSize(request.minFileSize.toLong())
-                .isDisplayCamera(request.showCameraButton)
-                .isGif(request.allowGif)
-                // 这三项 PictureSelector 默认就是 true，这里显式透传用户选择。
-                // 与 isGif 一样，都是**查询层**过滤 —— 不满足的项根本不出现在列表里。
-                .isWebp(request.allowWebp)
-                .isBmp(request.allowBmp)
-                .isHeic(request.allowHeic)
-                .isOriginalControl(request.allowOriginal)
-                .setSelectedData(toLocalMedia(request.selectedUris))
-                .setPermissionDeniedListener { fragment, _, _, _ ->
-                    rejectPermission(pending, fragment)
-                }
-                .apply {
-                    if (request.compress.enabled) {
-                        setCompressEngine(ImageCompressEngine(request.compress))
+            withGalleryPermission(activity, SelectMimeType.ofImage(), pending) {
+                PictureSelector.create(activity)
+                    .openGallery(SelectMimeType.ofImage())
+                    .setPermissionsInterceptListener(permissionInterceptor())
+                    .setImageEngine(GlideImageEngine)
+                    .setSandboxFileEngine(SandboxEngine)
+                    .setSelectorUIStyle(
+                        SelectorStyle.build(request.wechatStyle, request.showSelectionIndex),
+                    )
+                    .setMaxSelectNum(request.maxCount)
+                    .setMinSelectNum(request.minCount)
+                    .setSelectionMode(
+                        if (request.maxCount > 1) SelectModeConfig.MULTIPLE
+                        else SelectModeConfig.SINGLE,
+                    )
+                    .setImageSpanCount(GRID_SPAN_COUNT)
+                    .setQuerySortOrder(sortOrder(request.sortAscending))
+                    .setFilterMaxFileSize(request.maxFileSize.toLong())
+                    .setSelectMinFileSize(request.minFileSize.toLong())
+                    .isDisplayCamera(request.showCameraButton)
+                    .isGif(request.allowGif)
+                    // 这三项 PictureSelector 默认就是 true，这里显式透传用户选择。
+                    // 与 isGif 一样，都是**查询层**过滤 —— 不满足的项根本不出现在列表里。
+                    .isWebp(request.allowWebp)
+                    .isBmp(request.allowBmp)
+                    .isHeic(request.allowHeic)
+                    .isOriginalControl(request.allowOriginal)
+                    .setSelectedData(toLocalMedia(request.selectedUris))
+                    .setPermissionDeniedListener { fragment, _, _, _ ->
+                        rejectPermission(pending, fragment)
                     }
-                    // 裁剪只在单选时有意义 —— 多选时 UCrop 的多图流程与本库的
-                    // 结果契约对不上，直接忽略，并已在类型注释中写明。
-                    if (request.crop.enabled && request.maxCount == 1) {
-                        setCropEngine(UCropEngine(request.crop))
+                    .apply {
+                        if (request.compress.enabled) {
+                            setCompressEngine(ImageCompressEngine(request.compress))
+                        }
+                        // 裁剪只在单选时有意义 —— 多选时 UCrop 的多图流程与本库的
+                        // 结果契约对不上，直接忽略，并已在类型注释中写明。
+                        if (request.crop.enabled && request.maxCount == 1) {
+                            setCropEngine(UCropEngine(request.crop))
+                        }
                     }
-                }
-                .forResult(imageListener(pending, request.includeBase64, request.keepOriginal))
+                    .forResult(imageListener(pending, request.includeBase64, request.keepOriginal))
+            }
         } catch (t: Throwable) {
             pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
         }
@@ -163,29 +170,31 @@ class RNSyanImagePickerModule(
         val request = VideoRequest.from(options)
         val pending = beginRequest(promise) ?: return
         try {
-            PictureSelector.create(activity)
-                .openGallery(SelectMimeType.ofVideo())
-                .setPermissionsInterceptListener(permissionInterceptor())
-                .setImageEngine(GlideImageEngine)
-                .setSandboxFileEngine(SandboxEngine)
-                .setMaxSelectNum(request.maxCount)
-                .setMinSelectNum(request.minCount)
-                .setSelectionMode(
-                    if (request.maxCount > 1) SelectModeConfig.MULTIPLE
-                    else SelectModeConfig.SINGLE,
-                )
-                .setImageSpanCount(GRID_SPAN_COUNT)
-                .setQuerySortOrder(sortOrder(request.sortAscending))
-                .setFilterMaxFileSize(request.maxFileSize.toLong())
-                .setSelectMinFileSize(request.minFileSize.toLong())
-                .isDisplayCamera(request.showCameraButton)
-                .setFilterVideoMaxSecond(request.maxDuration)
-                .setFilterVideoMinSecond(request.minDuration)
-                .setSelectedData(toLocalMedia(request.selectedUris))
-                .setPermissionDeniedListener { fragment, _, _, _ ->
-                    rejectPermission(pending, fragment)
-                }
-                .forResult(videoListener(pending))
+            withGalleryPermission(activity, SelectMimeType.ofVideo(), pending) {
+                PictureSelector.create(activity)
+                    .openGallery(SelectMimeType.ofVideo())
+                    .setPermissionsInterceptListener(permissionInterceptor())
+                    .setImageEngine(GlideImageEngine)
+                    .setSandboxFileEngine(SandboxEngine)
+                    .setMaxSelectNum(request.maxCount)
+                    .setMinSelectNum(request.minCount)
+                    .setSelectionMode(
+                        if (request.maxCount > 1) SelectModeConfig.MULTIPLE
+                        else SelectModeConfig.SINGLE,
+                    )
+                    .setImageSpanCount(GRID_SPAN_COUNT)
+                    .setQuerySortOrder(sortOrder(request.sortAscending))
+                    .setFilterMaxFileSize(request.maxFileSize.toLong())
+                    .setSelectMinFileSize(request.minFileSize.toLong())
+                    .isDisplayCamera(request.showCameraButton)
+                    .setFilterVideoMaxSecond(request.maxDuration)
+                    .setFilterVideoMinSecond(request.minDuration)
+                    .setSelectedData(toLocalMedia(request.selectedUris))
+                    .setPermissionDeniedListener { fragment, _, _, _ ->
+                        rejectPermission(pending, fragment)
+                    }
+                    .forResult(videoListener(pending))
+            }
         } catch (t: Throwable) {
             pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
         }
@@ -351,16 +360,54 @@ class RNSyanImagePickerModule(
      * 停在那里 —— JS 已经收到 PERMISSION_DENIED，原生 UI 却还盖在 App 上。
      */
     private fun rejectPermission(pending: PendingRequest, fragment: Fragment?) {
-        pending.reject(
-            SyanErrorCode.PERMISSION_DENIED,
-            "用户拒绝了所需的媒体或相机权限",
-        )
+        pending.reject(SyanErrorCode.PERMISSION_DENIED, PERMISSION_DENIED_MESSAGE)
 
         // forResult(listener) 起的是 PictureSelector 自己的 SupporterActivity，
         // 关掉它不会影响宿主 App 的 Activity。
         when (fragment) {
             is PictureCommonFragment -> fragment.onKeyBackFragmentFinish()
             else -> fragment?.activity?.finish()
+        }
+    }
+
+    /**
+     * 有宿主拦截器且还没有读权限时，先申请权限，拿到后再打开应用内相册。
+     * 见 [PermissionPreflight]。
+     */
+    private fun withGalleryPermission(
+        activity: FragmentActivity,
+        mimeType: Int,
+        pending: PendingRequest,
+        launch: () -> Unit,
+    ) {
+        val interceptor = hostPermissionInterceptor
+        if (interceptor == null || PermissionChecker.isCheckReadStorage(mimeType, activity)) {
+            launch()
+            return
+        }
+        UiThreadUtil.runOnUiThread {
+            try {
+                PermissionPreflight.request(
+                    activity,
+                    interceptor,
+                    PermissionConfig.getReadPermissionArray(activity, mimeType),
+                ) { granted ->
+                    try {
+                        when {
+                            !granted -> pending.reject(
+                                SyanErrorCode.PERMISSION_DENIED,
+                                PERMISSION_DENIED_MESSAGE,
+                            )
+                            activity.isFinishing || activity.isDestroyed -> pending.cancel()
+                            else -> launch()
+                        }
+                    } catch (t: Throwable) {
+                        pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
+                    }
+                }
+            } catch (t: Throwable) {
+                pending.reject(SyanErrorCode.EXPORT_FAILED, t.message ?: "无法打开选择器")
+            }
         }
     }
 
